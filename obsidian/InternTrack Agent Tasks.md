@@ -146,9 +146,24 @@ Index: [[InternTrack Index]] · Scope: [[InternTrack Overview]] · Stack: [[Inte
     the key that produced it, so a mismatched key reads as "nothing yet"). The second is
     why the hook has no "mark as loading" setState — see `T-62` if a screen ever wants
     a refresh indicator, which needs one for a stated reason.
-- [ ] `T-22` `components/HourInput.tsx`. **M** · deps: `T-11`
-  - Numeric keypad, decimal entry, live "7.5 h" echo, inline error.
-  - AC: rejects > 24 h inline before submit.
+- [x] `T-22` `components/HourInput.tsx`. **M** · deps: `T-11`
+  - Numeric keypad, decimal entry, live `formatDuration()` echo, inline error.
+    ~~live "7.5 h" echo~~ — corrected here in `T-21`: R-1 makes decimal hours an
+    input-only format, so the echo shows `formatDuration()`. Typing `7.5` shows
+    `7h 30m`, which is exact for every minute value. The intern's own text stays
+    visible in the field, so nothing is hidden from them.
+  - AC: rejects > 24 h inline before submit. 15 tests. Met — the message appears
+    on blur, and `revealError` covers the R-13 path where a failed submit focuses
+    the field (focusing does not blur, so the blur gate alone would leave the
+    intern staring at a focused field with no explanation).
+  - No `maxLength`, deliberately. It would silently truncate a **pasted** `7.333`
+    to `7.33`, changing what is stored — rounding dressed as a length limit, the
+    same trade-off R-1 already rejected. Over-long input is rejected with a message.
+  - The echo is also put in `accessibilityHint`, because it is visual only and a
+    screen reader user would otherwise be left doing the conversion mentally.
+  - Two mutation-tested guards: reintroducing the deleted `(minutes/60).toFixed(2)`
+    formatter fails **6** tests, including a property check that the echo equals
+    `formatDuration(toMinutes(x))` for 9 inputs. Dropping the blur gate fails 1.
 - [ ] `T-23` `components/ActivityInput.tsx`. **S** · deps: `T-12`
   - Multiline, 2000-char cap with counter, trims on save.
   - AC: whitespace-only input is blocked by R-3.
@@ -246,7 +261,7 @@ Index: [[InternTrack Index]] · Scope: [[InternTrack Overview]] · Stack: [[Inte
 | `T-17` | entries repo | 3 | M | **done** | `T-15` |
 | `T-18` | Repository tests | 3 | M | **done** | `T-17` |
 | `T-21` | Entry hooks | 4 | S | **done** | `T-18` |
-| `T-22` | `HourInput` | 4 | M | todo | `T-11` |
+| `T-22` | `HourInput` | 4 | M | **done** | `T-11` |
 | `T-23` | `ActivityInput` | 4 | S | todo | `T-12` |
 | `T-24` | Today screen | 4 | L | todo | `T-21` |
 | `T-25` | Log editor | 4 | M | todo | `T-24` |
@@ -271,14 +286,15 @@ Index: [[InternTrack Index]] · Scope: [[InternTrack Overview]] · Stack: [[Inte
 
 | | |
 | --- | --- |
-| Tasks done | 14 / 35 |
+| Tasks done | 15 / 35 |
 | In progress | 0 |
-| Current | `T-22` — `HourInput` (then `T-23`, then `T-24` Today, then the first EAS build) |
-| Tests | 205 passing (`src/lib` 80, `src/db` 101, `src/hooks` 24) · `hours.ts` 100% branch, `validation.ts` 100% stmt, `client.ts` 100% stmt |
+| Current | `T-23` — `ActivityInput` (then `T-24` Today, then the first EAS build) |
+| Tests | 220 passing (`src/lib` 80, `src/db` 101, `src/hooks` 24, `src/components` 15) · `hours.ts` 100% branch, `validation.ts` 100% stmt, `client.ts` 100% stmt |
 | Gates | `tsc` ✅ · `lint` ✅ · `expo install --check` ✅ · `expo-doctor` 21/21 ✅ |
 | First build needed | `T-61`, after `T-24` per decision 13. `openInternTrackDatabase()` is still the **only** path not covered by tests — it calls the native opener |
 | Blocking decision | none — EAS account is created and logged in, so `T-61` has no login blocker |
 | Known gap | the focus-refetch path in `useAsyncData` is untested: `useFocusEffect` needs a navigation container, so it is mocked away. Thin (calls `reload()`) and covered by `T-61` |
+| Known rough edge | `validateEntry`'s hours message is `'Enter hours between 0 and 24, e.g. 7.5.'` for *every* parse failure. For `7.333` the real problem is the 2-decimal cap, so the message misdirects. Fixing it means giving `hours.ts` a way to say *why* it rejected, which changes `T-13`'s tested contract — left for `T-62` rather than smuggled into `T-22` |
 
 ## Related
 
