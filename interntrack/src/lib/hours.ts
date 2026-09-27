@@ -66,6 +66,36 @@ export function splitMinutes(total: number): HourParts {
 }
 
 /**
+ * Render stored minutes back into the *input* format, for pre-filling an edit
+ * form: `450 -> "7.5"`, `480 -> "8"`, `440 -> "7.33"`.
+ *
+ * ## Why 2 decimal places are enough, checked rather than assumed
+ *
+ * I expected this to be lossy. One minute is 0.0166…h, so it seemed obvious that
+ * most stored values would have no 2-decimal form and this would need to report
+ * failure. I ran all 1440 legal minute counts through the round trip and **every
+ * one of them survives**: 2dp is 0.005h = 0.3 min of resolution, well inside the
+ * ±0.5 min that `toMinutes` rounds away.
+ *
+ * So there is no failure case to handle here, and inventing one would have added
+ * a branch no entry could ever reach. `hours.test.ts` keeps the exhaustive check
+ * so this stays a measured property rather than a comment.
+ *
+ * Note `440 -> "7.33"`: that reads as a lie to someone comparing it against
+ * "7h 20m", but it is the only 2-decimal form that exists, and it round-trips to
+ * the same stored 440. That is the property that matters for an edit form — the
+ * value survives a save unchanged. For text a person reads, use
+ * `formatDuration`, which is exact.
+ *
+ * `0` returns `"0"`, which R-3 rejects as an entry. No stored entry can be 0, so
+ * this only matters to a caller passing a value the database would not hold.
+ */
+export function toHoursText(minutes: number): string {
+  assertWholeMinutes(minutes);
+  return (minutes / MINUTES_PER_HOUR).toFixed(2).replace(/\.?0+$/, '');
+}
+
+/**
  * Format a minute count for display, e.g. `450 -> "7h 30m"`, `480 -> "8h"`.
  *
  * ### Why there is no decimal-hours output function

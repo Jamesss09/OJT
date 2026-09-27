@@ -190,9 +190,52 @@ Index: [[InternTrack Index]] · Scope: [[InternTrack Overview]] · Stack: [[Inte
     changing without the other would leave the form inconsistent.
   - 21 tests. Fixture pins a fixed `now`, otherwise `dateISO` becomes a future
     date the day after the tests were written.
-- [ ] `T-24` `app/index.tsx` (Today). **L** · deps: `T-21`, `T-22`, `T-23`
+- [x] `T-24` `app/index.tsx` (Today). **L** · deps: `T-21`, `T-22`, `T-23`, `T-26`
   - Hour + activity input, today's total, week total, progress bar, logged/not-logged state, "edit" path.
   - AC: full log-and-save in < 30 s; edits an existing day instead of duplicating it; empty state present.
+    All three met. 29 tests drive the **real** data path — real migration, real
+    repositories, real hooks, real `validateEntry` — with only `expo-router` and
+    `useSQLiteContext` mocked. "Edits rather than duplicates" is proved by
+    `COUNT(*)` on SQLite, not by checking a label.
+  - **No date picker, and no separate edit button.** Both were considered and
+    rejected. There is no picker because Today logs today and `T-25` handles a
+    past day; adding one would make "which day?" a question to answer before
+    every entry. There is no edit button because logging twice already *is*
+    editing — R-2's `UNIQUE(entry_date)` plus the repository's upsert mean the
+    second save updates the row. A separate edit affordance would imply two rows,
+    which is the exact mistake R-2 prevents.
+  - Seeding the form from a stored entry needed a new function:
+    `toHoursText(minutes)` in `lib/hours.ts`. I **expected** this to be lossy —
+    440 minutes is 7h 20m = 7.333…h, and `HOURS_INPUT` only accepts 2 decimals —
+    so I wrote a `null`-returning version and a screen branch to handle it. Then
+    I ran all 1440 legal minute counts through the round trip and **every one
+    survives**: 2dp is 0.005h = 0.3 min of resolution, inside the ±0.5 min that
+    `toMinutes` already rounds away. The failure case was unreachable, so the
+    branch was deleted rather than shipped as dead code. `hours.test.ts` now
+    asserts the round trip exhaustively, so it stays a measured property.
+  - The screen still states the real duration ("Logged as 7h 20m") next to a
+    `7.33` in the field. The field value round-trips correctly, but a number that
+    does not match the sentence beside it is a puzzle for the reader.
+  - `hooks/useSettings.ts` added (read-only). R-6 needs `requiredMinutes`, and
+    Today needs it before `T-41` exists. No write path here on purpose: two
+    writers would let them disagree about what a valid setting is. `T-41` owns
+    editing and `readSettingsFromValues` is the single validator.
+  - **Mutation-tested** (R-15): dropping `week.reload()` fails 1, dropping
+    `entry.reload()` fails 1, clearing the draft on a failed save fails 1, not
+    setting `revealErrors` on a failed submit fails 4, and seeding with a raw
+    `minutes / 60` division fails 1. That last one matters most — it is the bug
+    `toHoursText` exists to prevent, producing `7.333333333333333` in a form
+    field that `HOURS_INPUT` then refuses to save.
+  - Two test-harness bugs found and fixed here, both mine. `props.children` reads
+    `undefined` on a `ThemedText` wrapper and `"[object Object]"` on a `Pressable`
+    containing one, so `textOf` now walks to the leaves. And `findAllByProps`
+    matches composite *and* host elements, so `byTestId` had to filter to string
+    types — otherwise reading `week-total` returned `"This week0h"`, a label
+    bleeding in from the sibling element.
+  - The R-5 week test was wrong when first written: I asserted 2026-10-01 was
+    outside the week starting Monday 2026-09-28, when it is inside it. Corrected
+    and split into four tests that pin both boundaries — the day before, the
+    Sunday at the far end, and the Monday that starts the next week.
 - [ ] `T-25` `app/log/[date].tsx` (editor for a past day). **M** · deps: `T-24`
   - AC: `2026-09-31` or a malformed param is rejected with a friendly error, not a crash; past dates only.
 - [x] `T-26` `components/ProgressBar.tsx`. **S** · deps: `T-11` *(dep flipped from `T-24`)*
@@ -305,7 +348,7 @@ Index: [[InternTrack Index]] · Scope: [[InternTrack Overview]] · Stack: [[Inte
 | `T-21` | Entry hooks | 4 | S | **done** | `T-18` |
 | `T-22` | `HourInput` | 4 | M | **done** | `T-11` |
 | `T-23` | `ActivityInput` | 4 | S | **done** | `T-12` |
-| `T-24` | Today screen | 4 | L | todo | `T-21` |
+| `T-24` | Today screen | 4 | L | **done** | `T-21` |
 | `T-25` | Log editor | 4 | M | todo | `T-24` |
 | `T-26` | `ProgressBar` | 4 | S | **done** | `T-11` |
 | `T-31` | History screen | 5 | L | todo | `T-24` |
@@ -328,10 +371,10 @@ Index: [[InternTrack Index]] · Scope: [[InternTrack Overview]] · Stack: [[Inte
 
 | | |
 | --- | --- |
-| Tasks done | 17 / 35 |
+| Tasks done | 18 / 35 |
 | In progress | 0 |
-| Current | `T-24` — Today screen. All three of its inputs now exist (`T-21` hooks, `T-22` hours, `T-23` activity) and `T-26` is built early so the bar is not written twice |
-| Tests | 259 passing (`src/lib` 80, `src/db` 101, `src/hooks` 24, `src/components` 54) · `hours.ts` 100% branch, `validation.ts` 100% stmt, `client.ts` 100% stmt |
+| Current | `T-25` — log editor for a past day, then `T-61` the first EAS build. **Phase 4 is complete**, so the first build is now unblocked |
+| Tests | 300 passing (`src/lib` 86, `src/db` 101, `src/hooks` 29, `src/components` 54, `src/app` 30) · `hours.ts` 100% branch, `validation.ts` 100% stmt, `client.ts` 100% stmt |
 | Gates | `tsc` ✅ · `lint` ✅ · `expo install --check` ✅ · `expo-doctor` 21/21 ✅ |
 | App icon | Done, ahead of `T-64`. Assets generated from `logo/interntrack_logo.png`; see [[InternTrack Index]] decision 17. No longer the stock Expo logo |
 | First build needed | `T-61`, after `T-24` per decision 13. `openInternTrackDatabase()` is still the **only** path not covered by tests — it calls the native opener |

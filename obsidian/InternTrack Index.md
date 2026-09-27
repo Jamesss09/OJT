@@ -47,12 +47,23 @@ A React Native (Expo) mobile app where an intern records, reviews and totals the
 | 16 | **The repository's write input is an alias of `ValidEntry`, not a restated copy.** | `validation.ts` and `entries.repo.ts` both exported an `EntryDraft` meaning different things — one the raw form, one the storage shape. Aliasing (`type EntryInput = ValidEntry`) makes "validate before you write" a compile-time guarantee: change the validated shape and every drifted call site fails to typecheck. Found while writing `T-21`, before it could bite. |
 | 17 | **The app icon is the supplied `logo/interntrack_logo.png`, and the adaptive background is `#FFFFFF` taken from that file — not a designer's guess.** Done now rather than at `T-64`. | The background was **measured, not chosen**: the file is 1254×1254 truecolour with no alpha channel, its corners are `#fefefe`, and 84% of it is near-white, so white is the logo's own background. Feeding that file straight into `adaptiveIcon.foregroundImage` would have been wrong twice over — the mark measures 989×754, i.e. 79% of the canvas against Android's 66.7% safe zone, so a launcher mask would crop it. The foreground is therefore the mark cropped to its bounding box, box-filter resampled to 683×521, and centred on transparency. `maxLength`-style guessing about safe zones is how you ship a clipped icon; the number is one `for` loop away. |
 | 18 | **`backgroundColor` replaces `backgroundImage` for the adaptive icon, and `android-icon-background.png` is deleted.** | A flat colour is one config value instead of a 1024px PNG, and it cannot drift from the logo the way a baked image can. The stock template file was the only thing that referenced it. |
+| 19 | **Minutes → hours text is a plain `toFixed(2)`, because 2 decimal places provably round-trip every legal value.** | I assumed the opposite and wrote a `null`-returning version plus a screen branch for "stored hours have no decimal form". Running all 1440 legal minute counts through `toHoursText` → `toMinutes` showed **zero** failures: 2dp is 0.005h = 0.3 min of resolution, well inside the ±0.5 min `toMinutes` already rounds away. The branch was unreachable, so it was deleted rather than shipped. `hours.test.ts` asserts the round trip over all 1440 values so this stays measured, not remembered. Found in `T-24`, where seeding an edit form from stored minutes first exposed it. |
 
 ## Current phase
 
-**Phase 4 in progress. `T-01`–`T-05`, `T-11`–`T-18`, `T-14b`, `T-21`–`T-23` done (16/35).** The app lives in `interntrack/` (a subfolder of this repo, so `obsidian/` stays a sibling).
+**Phase 4 complete. `T-01`–`T-05`, `T-11`–`T-18`, `T-14b`, `T-21`–`T-26` done (18/35).** The app lives in `interntrack/` (a subfolder of this repo, so `obsidian/` stays a sibling).
 
-Gates green: `tsc --noEmit` · `expo lint` · `expo install --check` · `expo-doctor` 21/21 · **241 Jest tests**.
+Gates green: `tsc --noEmit` · `expo lint` · `expo install --check` · `expo-doctor` 21/21 · **300 Jest tests** across 13 suites.
+
+> [!warning] `T-61`, the first EAS build, is now unblocked
+> Its only dependency was `T-24`. Nothing is standing between the code and a device
+> except the build itself. That build is also what closes two things no test can:
+> `openInternTrackDatabase()` reaching the native opener, and the `useAsyncData`
+> focus-refetch path that is mocked away in tests.
+>
+> Still an open choice: spend one build now on a **development** build for hot reload
+> for the rest of the project, or save the allowance until `T-61` proper. See
+> [[InternTrack Index]] open questions.
 
 > [!note] Hook tests needed no new dependency
 > `react-test-renderer` already arrives via `jest-expo`, and the hooks render no native
@@ -80,6 +91,8 @@ Next action: `T-16` (`repositories/settings.repo.ts`), then `T-17`, then `T-18` 
 - ✅ Resolved 2026-09-27: build strategy → Option B, EAS-only (decision 9).
 - ✅ Resolved 2026-09-27: first build timing → after Phase 4, once the Today screen exists (decision 13). *This line previously said "end of Phase 3", which contradicted decision 13 and `T-61`'s own `deps: T-24`. Corrected here rather than left to drift.*
 - ✅ Resolved 2026-09-28: **app icon → the supplied logo, wired now** (decisions 17–18). Background measured from the file as `#FFFFFF`; the adaptive foreground is the mark resampled into the 66.7% safe zone, because at its native 79% the launcher mask would crop it.
+- ✅ Resolved 2026-09-28: **2-decimal hours are lossless for every stored value** (decision 19). Checked all 1440, not assumed.
+- ❓ **Still open: development build now, or keep the EAS allowance until `T-61`?** A `development` profile build costs 1 of ~15 free Android builds/month and buys hot reload for every remaining task — but Today's screen is now real, so the argument for spending it *before* `T-24` is weaker than it was. Not answered.
 - ✅ Resolved 2026-09-28: **backup/restore stays in the MVP** — `T-51`–`T-54` confirmed as required work (decision 12 holds).
 - Nothing outstanding.
 
