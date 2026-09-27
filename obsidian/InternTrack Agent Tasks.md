@@ -195,9 +195,28 @@ Index: [[InternTrack Index]] · Scope: [[InternTrack Overview]] · Stack: [[Inte
   - AC: full log-and-save in < 30 s; edits an existing day instead of duplicating it; empty state present.
 - [ ] `T-25` `app/log/[date].tsx` (editor for a past day). **M** · deps: `T-24`
   - AC: `2026-09-31` or a malformed param is rejected with a friendly error, not a crash; past dates only.
-- [ ] `T-26` `components/ProgressBar.tsx`. **S** · deps: `T-24`
+- [x] `T-26` `components/ProgressBar.tsx`. **S** · deps: `T-11` *(dep flipped from `T-24`)*
   - R-6: hidden when `requiredMinutes = 0`; bar clamped to 100% with true numbers shown.
-  - AC: `0 h` required → bar hidden, no divide-by-zero warning.
+  - AC: `0 h` required → bar hidden, no divide-by-zero warning. **Met** — the
+    component returns `null`, so there is no width and no caption to be `NaN`.
+  - **Dep flipped.** `T-24` lists a progress bar as part of the Today screen, so
+    building it after `T-24` would mean writing the bar twice. It is a pure view
+    of two numbers, so it had no reason to wait for a screen that consumes it.
+  - Deliberately does **not** handle a negative `totalMinutes`. `formatDuration`
+    throws `RangeError` on one, and it runs during render, so the error surfaces
+    rather than rendering a plausible-looking "0%" bar. A negative total cannot
+    come from SQLite — migration 1's CHECK constraint forbids it — so it means a
+    bad caller, and burying it behind an empty bar would hide a real bug. There is
+    a test asserting the throw.
+  - The fill percent is rounded to a whole number. One third of a target is
+    otherwise handed to the layout engine as `"33.333333333333336%"`.
+  - `hasTarget()` is exported so a screen can ask the same question the component
+    asks, rather than each re-deriving `requiredMinutes > 0`.
+  - 18 tests. **Mutation-tested** (R-15): dropping the fill clamp fails 4,
+    clamping the caption to hide overachievement fails 2, removing the `hasTarget`
+    guard fails 4, dropping the rounding fails 2. The two clamp mutations are the
+    ones that matter — the bar and the numbers are separate guards, and R-6's
+    second clause only holds because they are.
 
 ---
 
@@ -288,7 +307,7 @@ Index: [[InternTrack Index]] · Scope: [[InternTrack Overview]] · Stack: [[Inte
 | `T-23` | `ActivityInput` | 4 | S | **done** | `T-12` |
 | `T-24` | Today screen | 4 | L | todo | `T-21` |
 | `T-25` | Log editor | 4 | M | todo | `T-24` |
-| `T-26` | `ProgressBar` | 4 | S | todo | `T-24` |
+| `T-26` | `ProgressBar` | 4 | S | **done** | `T-11` |
 | `T-31` | History screen | 5 | L | todo | `T-24` |
 | `T-32` | Reports screen | 5 | L | todo | `T-31` |
 | `T-33` | SVG bar chart | 5 | S | todo | `T-32` |
@@ -309,10 +328,10 @@ Index: [[InternTrack Index]] · Scope: [[InternTrack Overview]] · Stack: [[Inte
 
 | | |
 | --- | --- |
-| Tasks done | 16 / 35 |
+| Tasks done | 17 / 35 |
 | In progress | 0 |
-| Current | `T-24` — Today screen (then the first EAS build, `T-61`) |
-| Tests | 241 passing (`src/lib` 80, `src/db` 101, `src/hooks` 24, `src/components` 36) · `hours.ts` 100% branch, `validation.ts` 100% stmt, `client.ts` 100% stmt |
+| Current | `T-24` — Today screen. All three of its inputs now exist (`T-21` hooks, `T-22` hours, `T-23` activity) and `T-26` is built early so the bar is not written twice |
+| Tests | 259 passing (`src/lib` 80, `src/db` 101, `src/hooks` 24, `src/components` 54) · `hours.ts` 100% branch, `validation.ts` 100% stmt, `client.ts` 100% stmt |
 | Gates | `tsc` ✅ · `lint` ✅ · `expo install --check` ✅ · `expo-doctor` 21/21 ✅ |
 | App icon | Done, ahead of `T-64`. Assets generated from `logo/interntrack_logo.png`; see [[InternTrack Index]] decision 17. No longer the stock Expo logo |
 | First build needed | `T-61`, after `T-24` per decision 13. `openInternTrackDatabase()` is still the **only** path not covered by tests — it calls the native opener |
