@@ -46,7 +46,7 @@ A React Native (Expo) mobile app where an intern records, reviews and totals the
 
 ## Current phase
 
-**Phase 3 in progress. `T-01`–`T-05`, `T-11`–`T-16`, `T-14b` done (11/35).** The app lives in `interntrack/` (a subfolder of this repo, so `obsidian/` stays a sibling).
+**Phase 3 in progress. `T-01`–`T-05`, `T-11`–`T-18`, `T-14b` done (13/35).** The app lives in `interntrack/` (a subfolder of this repo, so `obsidian/` stays a sibling).
 
 Gates green: `tsc --noEmit` · `expo lint` · `expo install --check` · `expo-doctor` 21/21 · **112 Jest tests**.
 

@@ -116,12 +116,17 @@ Index: [[InternTrack Index]] · Scope: [[InternTrack Overview]] · Stack: [[Inte
   - Two bugs found by writing the tests, both recorded in [[InternTrack Rules]] R-15:
     - The `node:sqlite` double's `getFirstAsync` accepted only `source` and **silently ignored bind parameters**, so every `getFirstAsync(sql, [key])` lookup returned nothing. Fixing the signature then exposed that `TestDatabase` was declared as an intersection, which made the 1-arg `MigratableDatabase` overload shadow the 2-arg one.
     - `key TEXT PRIMARY KEY` **accepts `NULL` in SQLite** — only `INTEGER PRIMARY KEY` implies `NOT NULL`, being a rowid alias. A NULL-keyed row would never match `ON CONFLICT(key)`, so every read would see a phantom setting. Migration 1 amended to add `NOT NULL`; safe because no build has shipped, and the regression test was confirmed to fail when the fix is reverted.
-- [ ] `T-17` `repositories/entries.repo.ts`. **M** · deps: `T-15`
-  - `getByDate`, `upsert` (R-2), `delete`, `listRange`, `totalsFor`, `overallTotals`, `historyPage`.
-  - AC: all queries parameterised; aggregates `COALESCE`d (R-7).
-- [ ] `T-18` Repository tests. **M** · deps: `T-17`
-  - Harness already exists from `T-14b` — this task is only about covering the repository methods.
+- [x] `T-17` `repositories/entries.repo.ts`. **M** · deps: `T-15`
+  - `getByDate`, `upsert` (R-2), `deleteByDate`, `listRange`, `totalsFor`, `overallTotals`, `historyPage`, plus `clampPageSize` so the clamp is testable on its own.
+  - Read-only functions take `QueryableDatabase`; `upsert` takes `TransactableDatabase`. The narrow type is the honest one.
+  - `created_at` is deliberately absent from the `DO UPDATE SET` list — an edit is not a re-creation.
+  - AC: all queries parameterised; aggregates `COALESCE`d (R-7). Parameterisation is proven by a test that reads a date containing `'; DROP TABLE entries; --` and checks the log survives.
+  - Deliberately does **not** re-validate. `validateEntry` owns that and the hook calls it first; two copies of a rule drift. The `entries` `CHECK` constraints are the backstop for a caller that skips it, and the tests prove they hold.
+- [x] `T-18` Repository tests. **M** · deps: `T-17`
+  - Harness reused from `T-14b`. **43 new tests**, 181 total.
   - AC: upsert-by-date updates rather than duplicating; empty range totals `0`; a transaction rolls back on throw.
+  - All seven behavioural mutations were confirmed caught: dropping `ON CONFLICT`, not bumping `updated_at`, clobbering `created_at`, an unclamped page size, reversed history ordering, exclusive range bounds, and `deleteByDate` always reporting true.
+  - One mutation is **not** caught, and is not a bug: removing the SQL `COALESCE` fails no test, because `totalsFor` also has a JS `?? 0`. The behaviour is guaranteed by both layers; only the redundancy is invisible to a test. Noted in the source so nobody later "simplifies" the COALESCE on the false belief it is load-bearing for the tests.
 
 ---
 
@@ -228,8 +233,8 @@ Index: [[InternTrack Index]] · Scope: [[InternTrack Overview]] · Stack: [[Inte
 | `T-15` | Migrations v1 | 3 | M | **done** | `T-14` |
 | `T-14b` | SQLite test harness | 3 | M | **done** | `T-15` |
 | `T-16` | settings repo | 3 | S | **done** | `T-15` |
-| `T-17` | entries repo | 3 | M | todo | `T-15` |
-| `T-18` | Repository tests | 3 | M | todo | `T-17` |
+| `T-17` | entries repo | 3 | M | **done** | `T-15` |
+| `T-18` | Repository tests | 3 | M | **done** | `T-17` |
 | `T-21` | Entry hooks | 4 | S | todo | `T-18` |
 | `T-22` | `HourInput` | 4 | M | todo | `T-11` |
 | `T-23` | `ActivityInput` | 4 | S | todo | `T-12` |
@@ -256,10 +261,10 @@ Index: [[InternTrack Index]] · Scope: [[InternTrack Overview]] · Stack: [[Inte
 
 | | |
 | --- | --- |
-| Tasks done | 11 / 35 |
+| Tasks done | 13 / 35 |
 | In progress | 0 |
-| Current | `T-17` — `repositories/entries.repo.ts` |
-| Tests | 138 passing (`src/lib` 80, `src/db` 58) · `hours.ts` 100% branch, `validation.ts` 100% stmt, `client.ts` 100% stmt |
+| Current | `T-21` — entry hooks (`useEntryForDate`, `useLogEntryMutation`) |
+| Tests | 181 passing (`src/lib` 80, `src/db` 101) · `hours.ts` 100% branch, `validation.ts` 100% stmt, `client.ts` 100% stmt |
 | Gates | `tsc` ✅ · `lint` ✅ · `expo install --check` ✅ · `expo-doctor` 21/21 ✅ |
 | First build needed | `T-61` — the **only** path not covered by tests is `openInternTrackDatabase()`, which calls the native opener |
 | Blocking decision | none — EAS account is now created and logged in, so `T-61` has no login blocker |
