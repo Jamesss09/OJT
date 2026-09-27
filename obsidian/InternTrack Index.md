@@ -40,30 +40,37 @@ A React Native (Expo) mobile app where an intern records, reviews and totals the
 | 9 | **Option B — EAS-only builds. No local Android toolchain.** No Android Studio, no JDK, no Android SDK on the dev machine. | Limited free disk. EAS compiles in the cloud, so the local toolchain is unnecessary. Consequence: no `npx expo run:android`, no hot-reload dev loop — every visual check costs one EAS build from the monthly allowance. See [[InternTrack Tech Stack]]. |
 | 10 | **Required-hours target only** — no programme end date in v1. | Simpler. `app_settings` is a key/value table, so an end date can be added later with **no migration**. |
 | 11 | **Capture the intern's name** (`internName` in Settings). | Makes exported reports self-labelling. Already in the schema. |
+| 12 | **Export / backup is IN the MVP**, not deferred to Phase 7. `T-51`–`T-54` are now required work. | Reverses the earlier "not MVP" call. Local-only means the log exists on one phone and nowhere else; a phone lost or wiped takes every logged hour with it. The app is not fit for real OJT reporting without a way out. See the risk note below. |
+| 13 | **First EAS build is batched to the end of Phase 3**, not run as soon as the DB layer exists. | Under Option B each build costs one of ~15 free Android builds/month, and no screen exists to look at yet. Databases are verified by executing the real migration SQL in Node (`T-14b`), so the build is spent on UI instead. |
 
 ## Current phase
 
-**Phase 3 next. `T-01`–`T-05` and `T-11`–`T-13` done (9/35).** The app lives in `interntrack/` (a subfolder of this repo, so `obsidian/` stays a sibling).
+**Phase 3 in progress. `T-01`–`T-05`, `T-11`–`T-15`, `T-14b` done (10/35).** The app lives in `interntrack/` (a subfolder of this repo, so `obsidian/` stays a sibling).
 
-Gates green: `tsc --noEmit` · `expo lint` · `expo install --check` · `expo-doctor` 21/21 · **80 Jest tests** in `src/lib`.
+Gates green: `tsc --noEmit` · `expo lint` · `expo install --check` · `expo-doctor` 21/21 · **112 Jest tests**.
 
 > [!warning] R-1 was amended in `T-11`
 > Decimal hours are now an **input-only** format. A `minutes → "7.5 h"` formatter was written, caught by its own tests, and deleted: minutes are not always expressible in 2-decimal hours, so it lied for 2 of every 3 valid values. Output is always `formatDuration()` (`"7h 20m"`). See [[InternTrack Rules]].
 
-> [!tip] Phase 2 earned its keep
-> Two real bugs surfaced before a single line of UI existed: the impossible decimal formatter above, and a **key mismatch** in `validation.ts` that `tsc` caught and the tests missed (they asserted the bug). Both are now regression-tested. This is the payoff for R-8 — the expensive-to-debug layer was tested in Node in seconds.
+> [!tip] Testing cheaply caught what a build would not have
+> - `T-11`/`T-13`: the impossible decimal formatter, and a **key mismatch** in `validation.ts` that `tsc` caught and the tests missed (they asserted the bug). Both regression-tested.
+> - `T-14b`: `jest-expo` **cannot** run SQLite — it polyfills `expo-modules-core`, so `openDatabaseAsync` throws, and the `@expo/mocks` package it looks for is not published. The architecture note had claimed otherwise. A `node:sqlite`-backed test double now executes the real migration SQL, so every `CHECK`/`UNIQUE` constraint is verified before any build. See [[InternTrack Architecture]].
+>
+> Three assumptions in these notes were wrong and all three were caught by running something rather than reasoning about it. That is the whole argument for R-8 and for testing the cheap layers first.
 
-Next action: `T-14`. See [[InternTrack Agent Tasks]].
+Next action: `T-16` (`repositories/settings.repo.ts`), then `T-17`, then `T-18` — after which Phase 3 is done and the batched EAS build (`T-61`) becomes worth its credit. See [[InternTrack Agent Tasks]].
 
 ## Open questions
 
-- [!warning] **Export / backup is not in the MVP.** See below. Still unresolved by choice — revisit before real use.
+- ✅ Resolved 2026-09-27: **export scope → IN the MVP** (decision 12). `T-51`–`T-54` are no longer optional.
 - ✅ Resolved 2026-09-27: intern name → yes (decision 11).
 - ✅ Resolved 2026-09-27: end date → no, target only (decision 10).
 - ✅ Resolved 2026-09-27: build strategy → Option B, EAS-only (decision 9).
+- ✅ Resolved 2026-09-27: first build timing → batched to end of Phase 3 (decision 13).
+- Nothing outstanding.
 
 > [!danger] The one risk worth restating
-> This app is local-only, which means **the log lives on exactly one phone and nowhere else.** If the phone is lost, wiped, or replaced, every logged hour is gone with no way to recover it. The fix is export (CSV for hand-in, JSON as a backup) — it is currently scoped to Phase 7 as `T-51`–`T-54` in [[InternTrack Agent Tasks]] and is **strongly recommended before the app is used for real OJT reporting.**
+> This app is local-only, which means **the log lives on exactly one phone and nowhere else.** If the phone is lost, wiped, or replaced, every logged hour is gone with no way to recover it. This is why export is now in the MVP (decision 12) rather than deferred: JSON backup/restore (`T-53`) is the actual mitigation, with CSV export (`T-51`) serving the supervisor hand-in.
 
 ## Related
 

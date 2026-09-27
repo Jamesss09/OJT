@@ -97,13 +97,14 @@ Working rules under Option B:
 - `npx tsc --noEmit` and `npx expo lint` are the fast inner loop. Both are free and catch most mistakes.
 - Spend cloud builds only on **UI/visual verification** — the first `T-61` build, then after a batch of screen work.
 - Batch changes: finish a whole phase, then build once. Do not build per task.
+- **The first build waits until Phase 3 is finished** (decision 13 in [[InternTrack Index]]). Persistence is verified in Node instead — the migration SQL is executed against a real SQLite engine by `src/db/testing/nodeSqliteTestDouble.ts` — so the first build is spent looking at screens rather than discovering a schema typo.
 - The Free plan is a limited allowance (≈15 Android + 15 iOS builds/month per [expo.dev/pricing](https://expo.dev/pricing) — verify, pricing changes). Treat it as scarce.
 - `eas build --profile preview --platform android` produces the installable APK. Use `--auto-submit` only for the store track.
 - Requires an Expo account (`npx eas login`, free). iOS **device** builds additionally require a paid Apple Developer account; simulator builds do not.
 
-## Deferred but chosen (Phase 7 — export & backup)
+## Export & backup — now REQUIRED (Phase 7 pulled into the MVP)
 
-Not installed at MVP. Do not add them early — each adds native surface and build risk.
+Decision 12 reversed the earlier "deferred" call: with a local-only database the log exists on one phone and nowhere else, so these are MVP work, not polish. Still **do not add them early** — each adds native surface and build risk, and each should land in its own batched build.
 
 | Package | Version | Used for |
 | --- | --- | --- |

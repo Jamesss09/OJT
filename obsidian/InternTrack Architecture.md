@@ -67,9 +67,9 @@ interntrack/                     # the app lives in a subfolder of the repo
 │  ├─ constants/
 │  │  └─ theme.ts                # from template — design tokens live HERE
 │  ├─ db/
-│  │  ├─ client.ts               # openDatabaseAsync + PRAGMAs
+│  │  ├─ client.ts               # openDatabaseAsync + PRAGMAs + migrate
 │  │  ├─ migrations.ts           # versioned, ordered migration list
-│  │  ├─ schema.sql              # canonical DDL (documentation)
+│  │  ├─ testing/                # node:sqlite test double — see T-14
 │  │  └─ repositories/
 │  │     ├─ entries.repo.ts
 │  │     └─ settings.repo.ts
@@ -106,10 +106,13 @@ interntrack/                     # the app lives in a subfolder of the repo
 CREATE TABLE IF NOT EXISTS entries (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   entry_date  TEXT    NOT NULL UNIQUE,        -- 'YYYY-MM-DD', device-local
-  minutes     INTEGER NOT NULL,               -- 1..1440  (never a float)
-  activity    TEXT    NOT NULL,               -- what was done
+  minutes     INTEGER NOT NULL CHECK (minutes BETWEEN 1 AND 1440),
+  activity    TEXT    NOT NULL CHECK (length(trim(activity)) > 0),
   created_at  INTEGER NOT NULL,               -- epoch ms
-  updated_at  INTEGER NOT NULL                -- epoch ms
+  updated_at  INTEGER NOT NULL,               -- epoch ms
+  -- R-4: reject anything that is not a bare YYYY-MM-DD string. GLOB is
+  -- case-sensitive, so this cannot be bypassed.
+  CHECK (entry_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]')
 );
 
 CREATE INDEX IF NOT EXISTS idx_entries_date ON entries (entry_date DESC);
@@ -117,8 +120,9 @@ CREATE INDEX IF NOT EXISTS idx_entries_date ON entries (entry_date DESC);
 
 Design notes:
 
-- **`UNIQUE(entry_date)`** enforces the one-row-per-day rule at the database level, not in UI code. Saving an existing day = `UPDATE ... WHERE entry_date = ?`. See [[InternTrack Rules]].
-- **`minutes INTEGER`** is the whole reason totals are exact. `SUM(minutes)` in SQL, then format to `7.5 h` at the edge. Rule R-1.
+- **`UNIQUE(entry_date)`** enforces the one-row-per-day rule at the database level, not in UI code. Saving an existing day = `INSERT ... ON CONFLICT(entry_date) DO UPDATE`. See [[InternTrack Rules]].
+- **`CHECK` constraints carry the validation rules too** (added in `T-14`, not in the original draft). The same philosophy as `UNIQUE`: rules that protect the log belong in the database, where nothing can skip them. Every one is tested against a real SQLite engine — see [[InternTrack Agent Tasks]].
+- **`minutes INTEGER`** is the whole reason totals are exact. `SUM(minutes)` in SQL, then `formatDuration()` at the edge. Rule R-1.
 - **`entry_date` as `TEXT 'YYYY-MM-DD'`** sorts correctly with a plain `ORDER BY`, is timezone-free, and is trivially readable when debugging. Do not store epoch ms for the day.
 - **`created_at`/`updated_at` as epoch ms** — machine-sortable, timezone-correct. Format only for display.
 
@@ -140,6 +144,13 @@ CREATE TABLE IF NOT EXISTS app_settings (
 | `reminderEnabled` | `'true'\|'false'` | `'false'` | Daily reminder on/off |
 | `reminderTime` | `HH:mm` | `18:00` | When the reminder fires |
 | `internName` | text | `''` | Printed on reports (Phase 7) |
+
+> [!important] Defaults are applied at **read** time, not written by the migration
+> Migration 1 creates `app_settings` **empty**. The repository returns the default
+> above when a key is absent. This is forced by `programStartDate`, whose default
+> is the device's *today* — a migration runs on the database, not on the device's
+> calendar, so it cannot know the value. Keeping all defaults in one place in the
+> repository is more consistent than a migration that seeds some of them.
 
 Settings live in SQLite rather than AsyncStorage so reports can read them in the same query as entries and the app has exactly one persistence mechanism.
 
@@ -220,7 +231,10 @@ On boot: read `user_version`, run every migration with a higher version, each in
 
 - **Forward-only.** Never edit a shipped migration — add a new one.
 - **Never `DROP TABLE`.** The user's log is the entire point of the app.
-- `PRAGMA journal_mode = WAL` and `PRAGMA foreign_keys = ON` on open.
+- `PRAGMA journal_mode = WAL` and `PRAGMA foreign_keys = ON` on open, and *outside* any transaction — `journal_mode` cannot be changed inside one.
+- The `user_version` bump happens **inside the same transaction** as the migration body, so an interrupted upgrade leaves the database at its previous version rather than half-migrated.
+- `assertMigrationsValid()` runs before anything is applied: versions must be positive integers, contiguous from 1 and strictly ascending. A gap or a duplicate would silently skip or re-run a schema change on a user's real data, so it is a hard startup error instead.
+- `withExclusiveTransactionAsync`, not `withTransactionAsync`. The plain variant is **not** exclusive — any other async query open at the time gets pulled into the transaction. Migrations should never admit a bystander. Trade-off: unsupported on web, which is not a target platform here.
 
 ## Reminder flow
 
@@ -260,9 +274,19 @@ Tabs (`(tabs)` group) are an option for later if the screen count grows; a plain
 | Layer | What to test | How |
 | --- | --- | --- |
 | `src/lib/*` | Hours conversion/rounding, week & month boundaries, month-end, leap years, validation cases | Jest, pure functions, no mocks. **Highest value.** |
-| Repositories | Upsert-by-date, totals, range queries, migration from v0→v1 | `jest-expo` against an in-memory SQLite |
+| `src/db/*` | Migration v0→v1, idempotency, rollback, and the DDL's own `CHECK`/`UNIQUE` constraints | Jest against a `node:sqlite`-backed test double — **not** `jest-expo`'s own SQLite, see below |
+| Repositories | Upsert-by-date, totals, range queries | Same test double, once `T-15`+ exist |
 | Hooks | Mutation → refetch, error propagation | `@testing-library/react-native` |
 | Screens | Happy path for log/save, delete confirmation | Light. Manual QA on a device does the rest. |
+
+> [!warning] `jest-expo` cannot give you a working SQLite
+> This note previously claimed repository tests ran "against an in-memory SQLite" via `jest-expo`. **They do not.** `jest-expo` replaces `expo-modules-core` with a web polyfill, so `openDatabaseAsync` throws `NativeDatabase is not a constructor`. The mock it probes for, `@expo/mocks`, **is not published** to npm.
+>
+> The fix, built in `T-14`, is `src/db/testing/nodeSqliteTestDouble.ts`: a ~90-line `SQLiteDatabase` stand-in on Node 24's built-in `node:sqlite`. Real SQL, real transactions, real constraints — so a typo in a `CHECK` clause is caught in seconds instead of on a user's phone at the first EAS build.
+>
+> It is **not** `expo-sqlite` and cannot catch a difference in how expo-sqlite binds parameters or drives transactions. `execAsync`, `getFirstAsync` and `withExclusiveTransactionAsync` are the entire surface the migration layer uses, and all three are verified in the SDK 57 API. The one genuinely untestable function is `openInternTrackDatabase()`, which calls the native opener; it is covered by `T-61`.
+>
+> Node's `node:sqlite` types are hand-declared in `src/db/testing/nodeSqlite.d.ts` rather than pulling in `@types/node`, which would put `setTimeout: () => NodeJS.Timeout` into the type environment of React Native app code.
 
 Do not test `lib/` through the UI. If a test needs a renderer to check date maths, the function is in the wrong place.
 

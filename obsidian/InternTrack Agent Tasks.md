@@ -90,19 +90,31 @@ Index: [[InternTrack Index]] · Scope: [[InternTrack Overview]] · Stack: [[Inte
 
 ## Phase 3 — Persistence (M)
 
-- [ ] `T-14` `db/client.ts` + `db/schema.sql`. **S** · deps: `T-05`
-  - `openDatabaseAsync('interntrack.db')`; `journal_mode = WAL`; `foreign_keys = ON`.
-  - AC: DB opens, pragmas applied.
-- [ ] `T-15` `db/migrations.ts` with v1. **M** · deps: `T-14`
-  - `PRAGMA user_version` loop, transactional, forward-only.
-  - AC: fresh install and re-open both reach v1 with no error; a bad version fails loudly.
+- [x] `T-14` `db/client.ts`. **S** · deps: `T-05`
+  - `openDatabaseAsync('interntrack.db')`; `journal_mode = WAL`; `foreign_keys = ON`; `initDatabase` (PRAGMAs + migrate) wired as `SQLiteProvider onInit`.
+  - `SQLiteProvider` now live in `_layout.tsx` with `useSuspense` + `onError`, so no screen can query a table that does not exist yet and a DB failure shows a real screen instead of a white one.
+  - `db/schema.sql` was **dropped from this task.** The migration body *is* the schema; a separate DDL file would be a second source of truth free to drift from the thing that actually runs. The canonical DDL is quoted in [[InternTrack Architecture]] and asserted by tests.
+  - AC: pragmas applied, boot path tested, error path renders.
+- [x] `T-15` `db/migrations.ts` with v1. **M** · deps: `T-14`
+  - `PRAGMA user_version` loop, forward-only, each migration + its version bump in one exclusive transaction.
+  - `assertMigrationsValid()` rejects non-integer / non-contiguous / non-ascending versions before anything is applied.
+  - Strengthened the DDL with `CHECK (minutes BETWEEN 1 AND 1440)`, `CHECK (length(trim(activity)) > 0)` and a `GLOB` check that `entry_date` really is `YYYY-MM-DD` — the same "rules belong in the database" argument as `UNIQUE(entry_date)`.
+  - Migration 1 creates `app_settings` **empty**; defaults are read-time, because `programStartDate` defaults to the device's today and a migration cannot know it.
+  - AC: fresh install and re-open both reach v1; rollback leaves the version untouched; a bad version list fails loudly.
+- [x] `T-14b` Test harness. **M** · deps: `T-15`
+  - 🐛 **The architecture note was wrong:** it claimed repository tests could run "against an in-memory SQLite" via `jest-expo`. They cannot — `jest-expo` swaps `expo-modules-core` for a web polyfill and `openDatabaseAsync` throws, and the `@expo/mocks` package it probes for **is not published**.
+  - Built `src/db/testing/nodeSqliteTestDouble.ts` on Node 24's built-in `node:sqlite`: real SQL, real transactions, real constraints.
+  - Node's `node:sqlite` types are hand-declared instead of adding `@types/node`, which would put `NodeJS.Timeout` into the type environment of RN app code.
+  - `openInternTrackDatabase()` is the one function that cannot be tested this way — it calls the native opener. Covered by `T-61`.
+  - AC: 32 new tests execute the real migration SQL, including every `CHECK` constraint, the rollback path, and `initDatabase` idempotency with data preserved.
 - [ ] `T-16` `repositories/settings.repo.ts`. **S** · deps: `T-15`
   - Typed get/set for the keys in [[InternTrack Architecture]]; defaults applied on first read.
   - AC: reads before any write return the documented defaults.
 - [ ] `T-17` `repositories/entries.repo.ts`. **M** · deps: `T-15`
   - `getByDate`, `upsert` (R-2), `delete`, `listRange`, `totalsFor`, `overallTotals`, `historyPage`.
   - AC: all queries parameterised; aggregates `COALESCE`d (R-7).
-- [ ] `T-18` Repository tests against in-memory SQLite. **M** · deps: `T-17`
+- [ ] `T-18` Repository tests. **M** · deps: `T-17`
+  - Harness already exists from `T-14b` — this task is only about covering the repository methods.
   - AC: upsert-by-date updates rather than duplicating; empty range totals `0`; a transaction rolls back on throw.
 
 ---
@@ -206,8 +218,9 @@ Index: [[InternTrack Index]] · Scope: [[InternTrack Overview]] · Stack: [[Inte
 | `T-11` | `lib/hours.ts` | 2 | M | **done** | `T-01` |
 | `T-12` | `lib/dates.ts` | 2 | M | **done** | `T-11` |
 | `T-13` | `lib/validation.ts` | 2 | M | **done** | `T-12` |
-| `T-14` | `db/client.ts` | 3 | S | todo | `T-05` |
-| `T-15` | Migrations v1 | 3 | M | todo | `T-14` |
+| `T-14` | `db/client.ts` | 3 | S | **done** | `T-05` |
+| `T-15` | Migrations v1 | 3 | M | **done** | `T-14` |
+| `T-14b` | SQLite test harness | 3 | M | **done** | `T-15` |
 | `T-16` | settings repo | 3 | S | todo | `T-15` |
 | `T-17` | entries repo | 3 | M | todo | `T-15` |
 | `T-18` | Repository tests | 3 | M | todo | `T-17` |
@@ -237,13 +250,13 @@ Index: [[InternTrack Index]] · Scope: [[InternTrack Overview]] · Stack: [[Inte
 
 | | |
 | --- | --- |
-| Tasks done | 9 / 35 |
+| Tasks done | 10 / 35 |
 | In progress | 0 |
-| Current | `T-14` — `db/client.ts` (first task needing native code) |
-| Tests | 80 passing across `src/lib` · `hours.ts` 100% branch, `validation.ts` 100% stmt, `dates.ts` 94% |
+| Current | `T-16` — `repositories/settings.repo.ts` |
+| Tests | 112 passing (`src/lib` 80, `src/db` 32) · `hours.ts` 100% branch, `validation.ts` 100% stmt, `client.ts` 100% stmt |
 | Gates | `tsc` ✅ · `lint` ✅ · `expo install --check` ✅ · `expo-doctor` 21/21 ✅ |
-| First build needed | `T-61` — nothing before that needs a device |
-| Blocking decision | Export scope (Phase 7) — answered "not MVP", see [[InternTrack Index]] |
+| First build needed | `T-61` — the **only** path not covered by tests is `openInternTrackDatabase()`, which calls the native opener |
+| Blocking decision | none — export scope resolved, see [[InternTrack Index]] |
 
 ## Related
 
