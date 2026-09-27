@@ -54,28 +54,37 @@ Index: [[InternTrack Index]] · Scope: [[InternTrack Overview]] · Stack: [[Inte
   - `eslint.config.js`: scoped `react-hooks/set-state-in-effect` opt-out for `*.web.ts(x)` — the template's `hasHydrated` guard is intentional, not a mistake.
   - `src/types/global.d.ts`: declares `*.css`; TS 6 rejects the template's `global.css` side-effect import (TS2882).
   - AC met.
-- [ ] `T-04` Theme tokens. **S** · deps: `T-01`
-  - ⚠️ Largely satisfied already: `src/constants/theme.ts` + `useTheme()` ship light/dark tokens. **Review and extend, do not replace** — do not create a parallel `src/theme/`.
-  - AC: spacing / colour / radius / type tokens; light and dark resolved from device scheme.
-- [ ] `T-05` Root `_layout.tsx`: providers wired. **S** · deps: `T-02`, `T-04`
-  - `SQLiteProvider` → `SafeAreaProvider` → `Stack`; routes per [[InternTrack Architecture]] navigation map.
-  - Currently a placeholder with only `index`. AC: all 5 routes reachable, no red screen.
+- [x] `T-04` Theme tokens. **S** · deps: `T-01`
+  - Extended the template's `src/constants/theme.ts` rather than forking it: added `accent`, `accentMuted`, `danger`, `border` to both schemes, plus a `Radius` scale (`none`/`sm`/`md`/`lg`/`full`) which the template lacked entirely.
+  - `ThemeColor` stays valid automatically — it is derived from `Colors`.
+  - AC met. ⚠️ Contrast of `accent` still needs an accessibility pass in `T-62`.
+- [x] `T-05` Root `_layout.tsx` + all 5 routes. **S** · deps: `T-02`, `T-04`
+  - `Stack` with `index`, `history`, `reports`, `settings`, `log/[date]` (modal presentation).
+  - Routes are placeholders via one shared `ScreenPlaceholder` component, each naming the task that replaces it.
+  - `log/[date]` renders its raw `date` param to prove the dynamic segment resolves; real param validation is `T-25` (R-3).
+  - AC: all 5 routes resolve, `tsc` + lint clean.
+  - ⏭️ `SQLiteProvider` is deliberately **not** wired yet — there is no `db/client.ts` or migration to initialise. It lands with `T-14`/`T-15`.
 
 ---
 
 ## Phase 2 — Pure domain logic (M)
 
-> No UI, no database. This phase is where correctness is won — R-8.
+> [!info] No build required
+> This whole phase is pure functions. It runs in Node via Jest — no emulator, no device, no EAS credit. That is the point of R-8.
 
-- [ ] `T-11` `src/lib/hours.ts` + tests. **M** · deps: `T-01`
-  - `toMinutes('7.5') → 450`, `formatHours(450) → '7.5 h'`, `isValidHours`, rounding at `.5`/`.25`, reject `0`, `-1`, `24.01`, `''`, `'abc'`.
-  - AC: 100% branch coverage on the file; jest green.
-- [ ] `T-12` `src/lib/dates.ts` + tests. **M** · deps: `T-11`
-  - `today()`, `toISODate`, `parseISODate`, `weekRange` (Mon–Sun, R-5), `monthRange`, `formatDisplayDate`, `isFuture`.
-  - AC: month-end, year boundary, leap-day and month-start cases tested.
-- [ ] `T-13` `src/lib/validation.ts` + tests. **M** · deps: `T-11`, `T-12`
-  - `validateEntry` → discriminated union; enforces R-3.
-  - AC: every row of the R-3 table has a passing test.
+- [x] `T-11` `src/lib/hours.ts` + tests. **M** · deps: `T-01`
+  - `toMinutes` (caps input at 2 dp, accepts `,` separator, rounds IEEE drift), `splitMinutes`, `formatDuration`, `clampToDay`.
+  - 🔴 **Design bug caught by the tests:** the first draft had `fromMinutes(450) -> "7.30"` (padded the minute remainder) and a `minutes -> "7.5 h"` formatter. Both were wrong: minutes are not always expressible as 2-decimal hours (1 min = 0.0166…h; only multiples of 3 land on a boundary), so a decimal formatter **lies for 2 of every 3 valid values**. Deleted it; R-1 now forbids decimal output. The original round-trip assertion was mathematically unsatisfiable and was replaced with a losslessness property.
+  - AC: 100% branch coverage on the file; 77 tests green across the phase.
+- [x] `T-12` `src/lib/dates.ts` + tests. **M** · deps: `T-11`
+  - Calendar dates are `YYYY-MM-DD` strings and `{year, month, day}` numbers. `Date.UTC` is used only as a day-number calculator and all reads go through UTC getters, so **no local-timezone rule can ever shift a day** (R-4). `todayISODate()` is the single function that reads the device clock.
+  - `parseISODate` round-trips to reject `2026-02-31`; `weekRange` (Mon–Sun), `monthRange`, `addDays`, `daysInMonth`, `isFutureISODate`, `compareISO`, `allTimeRange`, `Intl`-based formatters.
+  - AC: leap day both directions, month/year rollover, week spanning month + year boundary, DST-proof local-time assertions.
+- [x] `T-13` `src/lib/validation.ts` + tests. **M** · deps: `T-11`, `T-12`
+  - `validateEntry` → discriminated union, **collects all field errors in one pass** so the form can show everything wrong at once (R-13). `firstInvalidField` for focus order.
+  - Enforces the whole R-3 table, including the 2000-char activity cap reported with its actual length.
+  - 🐛 **Real bug caught by `tsc`, not by the tests:** the hours error was keyed `errors.hours` while the form field is `hoursText`, so the message was unreachable and `firstInvalidField` returned `null` — R-13's "focus the first field with an error" silently failed for bad hours. The tests *passed* because they asserted `errors.hours`, matching the bug. Two lessons recorded in [[InternTrack Rules]] (R-15).
+  - AC: every R-3 row tested, plus an "all three fields invalid" case, plus a **regression test verified to have teeth** (reintroducing the key mismatch produces 12 failures).
 
 ---
 
@@ -192,11 +201,11 @@ Index: [[InternTrack Index]] · Scope: [[InternTrack Overview]] · Stack: [[Inte
 | `T-01` | Scaffold Expo app | 1 | M | **done** | — |
 | `T-02` | Install dependencies | 1 | S | **done** | `T-01` |
 | `T-03` | Config files | 1 | S | **done** | `T-02` |
-| `T-04` | Theme tokens | 1 | S | todo | `T-01` |
-| `T-05` | Root layout + routes | 1 | S | todo | `T-02` |
-| `T-11` | `lib/hours.ts` | 2 | M | todo | `T-01` |
-| `T-12` | `lib/dates.ts` | 2 | M | todo | `T-11` |
-| `T-13` | `lib/validation.ts` | 2 | M | todo | `T-12` |
+| `T-04` | Theme tokens | 1 | S | **done** | `T-01` |
+| `T-05` | Root layout + 5 routes | 1 | S | **done** | `T-02` |
+| `T-11` | `lib/hours.ts` | 2 | M | **done** | `T-01` |
+| `T-12` | `lib/dates.ts` | 2 | M | **done** | `T-11` |
+| `T-13` | `lib/validation.ts` | 2 | M | **done** | `T-12` |
 | `T-14` | `db/client.ts` | 3 | S | todo | `T-05` |
 | `T-15` | Migrations v1 | 3 | M | todo | `T-14` |
 | `T-16` | settings repo | 3 | S | todo | `T-15` |
@@ -228,10 +237,11 @@ Index: [[InternTrack Index]] · Scope: [[InternTrack Overview]] · Stack: [[Inte
 
 | | |
 | --- | --- |
-| Tasks done | 4 / 35 |
+| Tasks done | 9 / 35 |
 | In progress | 0 |
-| Current | `T-04` — review/extend the template theme tokens |
-| Next real milestone | Phase 2 (`T-11`–`T-13`) is pure logic, testable in Node with no build required |
+| Current | `T-14` — `db/client.ts` (first task needing native code) |
+| Tests | 80 passing across `src/lib` · `hours.ts` 100% branch, `validation.ts` 100% stmt, `dates.ts` 94% |
+| Gates | `tsc` ✅ · `lint` ✅ · `expo install --check` ✅ · `expo-doctor` 21/21 ✅ |
 | First build needed | `T-61` — nothing before that needs a device |
 | Blocking decision | Export scope (Phase 7) — answered "not MVP", see [[InternTrack Index]] |
 

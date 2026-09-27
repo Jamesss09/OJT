@@ -2,6 +2,11 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
+    // `expo/tsconfig.base` leaves `types` unset, but with
+    // `moduleResolution: bundler` + `customConditions: ["react-native"]` the
+    // auto-discovered `@types/jest` globals do not resolve, so test files fail
+    // with TS2304. Naming them explicitly is the fix.
+    "types": ["jest"],
     "paths": {
       "@/*": [
         "./src/*"

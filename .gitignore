@@ -17,6 +17,9 @@ expo-env.d.ts
 .metro-health-check*
 *.jsbundle
 
+# Test output
+coverage/
+
 # ---------- Secrets & signing (NEVER commit) ----------
 .env
 .env.*

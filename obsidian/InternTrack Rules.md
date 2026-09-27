@@ -16,13 +16,27 @@ Index: [[InternTrack Index]] · Scope: [[InternTrack Overview]] · Stack: [[Inte
 ## R-1 · Hours are integer minutes, forever
 
 - Store `minutes INTEGER`. Never a float column, never a decimal string in the DB.
-- Convert only at the edges: text in → `toMinutes()`, minutes out → `formatHours()`.
-- All totals are `SUM(minutes)` in SQL.
+- All totals are `SUM(minutes)` in SQL. Never reduce a list of entries in JS.
 - Reason: `0.1 + 0.2 !== 0.3` in IEEE 754. A timesheet that is off by a hundredth of an hour is not defensible to a supervisor.
 
+### Decimal hours are an INPUT format only, never an output format
+
+| Direction | Format | Why |
+| --- | --- | --- |
+| User types → store | `toMinutes("7.5")` → `450` | Input is a human convention. Cap at **2 decimal places**; `7.333` is rejected rather than silently rounded to 440. |
+| Store → user reads | `formatDuration(450)` → `"7h 30m"` | Exact for every minute value. |
+
+> [!danger] There must be no `minutes -> "7.5 h"` formatter
+> Minutes **cannot** always be written as a decimal number of hours. 1 minute = 0.0166…h, and only minute counts divisible by 3 land on a 2-decimal boundary (since 1/60 = 0.0(16)). A `440 -> "7.33 h"` formatter lies for **2 of every 3** valid minute values: it would print 7.33 h for a stored 440 minutes that is really 7h 20m.
+>
+> This was attempted and caught in `T-11` — see [[InternTrack Architecture]] and the `formatDuration` doc comment. If a decimal form is ever genuinely needed, it must be named to advertise the loss (e.g. `formatApproxDecimalHours`) and must never be re-parsed.
+
+When the UI echoes what the intern just typed, it shows **their own raw input text** rather than re-deriving a value from minutes. Re-derivation is where the lie would creep back in.
+
 ```
-7.5 h  -> 450      450      -> "7.5 h"
-7.25 h -> 435      480      -> "8 h"
+"7.5"  -> 450        450 -> "7h 30m"
+"7.25" -> 435        480 -> "8h"
+"7.33" -> 440        440 -> "7h 20m"   (not "7.33 h")
 ```
 
 ## R-2 · One entry per calendar day
@@ -150,6 +164,7 @@ A task is done when all of these hold:
 - [ ] Loading, empty, and error states exist — not just the happy path.
 - [ ] `npx tsc --noEmit` and `npx expo lint` are clean.
 - [ ] Tests pass (`npx jest`).
+- [ ] **A test that encodes a bug is a failing test.** If a test was written to match the implementation rather than the intent, rewrite it against the intent. See the `errors.hours` / `hoursText` case in `T-13`.
 - [ ] Any new dependency is added to [[InternTrack Tech Stack]] with a reason.
 - [ ] Any rule this change touches is updated **in the same commit**.
 - [ ] The task's checkbox in [[InternTrack Agent Tasks]] is ticked and the status table updated.

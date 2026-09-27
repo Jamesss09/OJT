@@ -43,9 +43,17 @@ A React Native (Expo) mobile app where an intern records, reviews and totals the
 
 ## Current phase
 
-**Phase 1 — Scaffold. `T-01`–`T-03` done.** The app lives in `interntrack/` (a subfolder of this repo, so `obsidian/` stays a sibling). Verified: `tsc --noEmit` clean · `expo lint` clean · `expo install --check` clean · `expo-doctor` 21/21.
+**Phase 3 next. `T-01`–`T-05` and `T-11`–`T-13` done (9/35).** The app lives in `interntrack/` (a subfolder of this repo, so `obsidian/` stays a sibling).
 
-Next action: `T-04`, then `T-05`. See [[InternTrack Agent Tasks]].
+Gates green: `tsc --noEmit` · `expo lint` · `expo install --check` · `expo-doctor` 21/21 · **80 Jest tests** in `src/lib`.
+
+> [!warning] R-1 was amended in `T-11`
+> Decimal hours are now an **input-only** format. A `minutes → "7.5 h"` formatter was written, caught by its own tests, and deleted: minutes are not always expressible in 2-decimal hours, so it lied for 2 of every 3 valid values. Output is always `formatDuration()` (`"7h 20m"`). See [[InternTrack Rules]].
+
+> [!tip] Phase 2 earned its keep
+> Two real bugs surfaced before a single line of UI existed: the impossible decimal formatter above, and a **key mismatch** in `validation.ts` that `tsc` caught and the tests missed (they asserted the bug). Both are now regression-tested. This is the payoff for R-8 — the expensive-to-debug layer was tested in Node in seconds.
+
+Next action: `T-14`. See [[InternTrack Agent Tasks]].
 
 ## Open questions
 

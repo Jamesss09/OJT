@@ -14,6 +14,15 @@ export const Colors = {
     backgroundElement: '#F0F0F3',
     backgroundSelected: '#E0E1E6',
     textSecondary: '#60646C',
+    // --- added by InternTrack (T-04) ---
+    /** Primary action / progress fill. Must be legible on `background`. */
+    accent: '#0A5C8F',
+    /** Tinted fill for accents behind text, e.g. the "logged today" chip. */
+    accentMuted: '#DCEAF5',
+    /** Destructive actions only — delete. Never decorative. */
+    danger: '#B3261E',
+    /** Hairlines and card separators. */
+    border: '#E4E5E9',
   },
   dark: {
     text: '#ffffff',
@@ -21,6 +30,11 @@ export const Colors = {
     backgroundElement: '#212225',
     backgroundSelected: '#2E3135',
     textSecondary: '#B0B4BA',
+    // --- added by InternTrack (T-04) ---
+    accent: '#6FB6E8',
+    accentMuted: '#16334A',
+    danger: '#F5B9B6',
+    border: '#34373C',
   },
 } as const;
 
@@ -59,6 +73,20 @@ export const Spacing = {
   four: 24,
   five: 32,
   six: 64,
+} as const;
+
+/**
+ * Corner radii (T-04). The Expo template ships none, but this app needs them
+ * for cards, the hour input well, and the progress bar track.
+ *
+ * `full` is for pills and circular buttons.
+ */
+export const Radius = {
+  none: 0,
+  sm: 6,
+  md: 10,
+  lg: 16,
+  full: 9999,
 } as const;
 
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;

@@ -82,9 +82,9 @@ interntrack/                     # the app lives in a subfolder of the repo
 │  │  ├─ useSettings.ts
 │  │  └─ useDailyReminder.ts
 │  ├─ lib/                       # PURE — no React, no expo imports
-│  │  ├─ hours.ts                #   toMinutes, fromMinutes, format, validate
-│  │  ├─ dates.ts                #   today, weekRange, monthRange, formatting
-│  │  └─ validation.ts           #   validateEntry -> Result<Entry, Errors>
+│  │  ├─ hours.ts                #   toMinutes, splitMinutes, formatDuration, clampToDay
+│  │  ├─ dates.ts                #   parse/today, addDays, weekRange, monthRange, formatting
+│  │  └─ validation.ts           #   validateEntry -> Result<ValidEntry, FieldErrors>
 │  ├─ notifications/
 │  │  └─ scheduler.ts            # schedule / cancel the daily reminder
 │  ├─ store/

@@ -9,8 +9,15 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack>
-        {/* Placeholder route set. Real navigators land in T-05. */}
         <Stack.Screen name="index" options={{ title: 'Today' }} />
+        <Stack.Screen name="history" options={{ title: 'History' }} />
+        <Stack.Screen name="reports" options={{ title: 'Reports' }} />
+        <Stack.Screen name="settings" options={{ title: 'Settings' }} />
+        {/* Modal-style: you arrive here from History, so it gets a back button. */}
+        <Stack.Screen
+          name="log/[date]"
+          options={{ title: 'Edit day', presentation: 'modal' }}
+        />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>
