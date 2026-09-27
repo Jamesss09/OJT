@@ -45,12 +45,14 @@ A React Native (Expo) mobile app where an intern records, reviews and totals the
 | 14 | **Migration 1 may still be amended; nothing has shipped.** Once `T-61` produces an APK, that closes. | `T-16` found that `key TEXT PRIMARY KEY` accepts `NULL` in SQLite — only `INTEGER PRIMARY KEY` implies `NOT NULL`, being a rowid alias. A NULL-keyed row would never match `ON CONFLICT(key)`, so every read would see a phantom setting. Cheaper to amend v1 now than to ship a v2 migration that rebuilds a table before anyone has data. After `T-61` the forward-only rule applies without exception. |
 | 15 | **No server-state library. Reads are local SQLite plus refetch-on-focus, in ~90 hand-written lines.** | Checked rather than assumed: Expo's [local-first guide](https://docs.expo.dev/guides/local-first/) recommends Legend-State, TinyBase, Yjs, Jazz, RxDB and friends, but every one of them exists to solve *sync* — CRDTs, conflict resolution, a server, multiple devices. Decisions 1 and 2 rule all of that out, so the page offered nothing applicable and confirmed `expo-sqlite` is the right persistence layer. What a query library actually buys is latency hiding, retry and cache sharing. There is no network to be slow, so that leaves invalidation — and `useFocusEffect` plus `reload()` does that in one line. The dependency graph is unchanged, which matters more than usual under Option B. Revisit only if a read ever leaves the device. |
 | 16 | **The repository's write input is an alias of `ValidEntry`, not a restated copy.** | `validation.ts` and `entries.repo.ts` both exported an `EntryDraft` meaning different things — one the raw form, one the storage shape. Aliasing (`type EntryInput = ValidEntry`) makes "validate before you write" a compile-time guarantee: change the validated shape and every drifted call site fails to typecheck. Found while writing `T-21`, before it could bite. |
+| 17 | **The app icon is the supplied `logo/interntrack_logo.png`, and the adaptive background is `#FFFFFF` taken from that file — not a designer's guess.** Done now rather than at `T-64`. | The background was **measured, not chosen**: the file is 1254×1254 truecolour with no alpha channel, its corners are `#fefefe`, and 84% of it is near-white, so white is the logo's own background. Feeding that file straight into `adaptiveIcon.foregroundImage` would have been wrong twice over — the mark measures 989×754, i.e. 79% of the canvas against Android's 66.7% safe zone, so a launcher mask would crop it. The foreground is therefore the mark cropped to its bounding box, box-filter resampled to 683×521, and centred on transparency. `maxLength`-style guessing about safe zones is how you ship a clipped icon; the number is one `for` loop away. |
+| 18 | **`backgroundColor` replaces `backgroundImage` for the adaptive icon, and `android-icon-background.png` is deleted.** | A flat colour is one config value instead of a 1024px PNG, and it cannot drift from the logo the way a baked image can. The stock template file was the only thing that referenced it. |
 
 ## Current phase
 
-**Phase 4 in progress. `T-01`–`T-05`, `T-11`–`T-18`, `T-14b`, `T-21` done (14/35).** The app lives in `interntrack/` (a subfolder of this repo, so `obsidian/` stays a sibling).
+**Phase 4 in progress. `T-01`–`T-05`, `T-11`–`T-18`, `T-14b`, `T-21`–`T-23` done (16/35).** The app lives in `interntrack/` (a subfolder of this repo, so `obsidian/` stays a sibling).
 
-Gates green: `tsc --noEmit` · `expo lint` · `expo install --check` · `expo-doctor` 21/21 · **205 Jest tests**.
+Gates green: `tsc --noEmit` · `expo lint` · `expo install --check` · `expo-doctor` 21/21 · **241 Jest tests**.
 
 > [!note] Hook tests needed no new dependency
 > `react-test-renderer` already arrives via `jest-expo`, and the hooks render no native
@@ -76,7 +78,9 @@ Next action: `T-16` (`repositories/settings.repo.ts`), then `T-17`, then `T-18` 
 - ✅ Resolved 2026-09-27: intern name → yes (decision 11).
 - ✅ Resolved 2026-09-27: end date → no, target only (decision 10).
 - ✅ Resolved 2026-09-27: build strategy → Option B, EAS-only (decision 9).
-- ✅ Resolved 2026-09-27: first build timing → batched to end of Phase 3 (decision 13).
+- ✅ Resolved 2026-09-27: first build timing → after Phase 4, once the Today screen exists (decision 13). *This line previously said "end of Phase 3", which contradicted decision 13 and `T-61`'s own `deps: T-24`. Corrected here rather than left to drift.*
+- ✅ Resolved 2026-09-28: **app icon → the supplied logo, wired now** (decisions 17–18). Background measured from the file as `#FFFFFF`; the adaptive foreground is the mark resampled into the 66.7% safe zone, because at its native 79% the launcher mask would crop it.
+- ✅ Resolved 2026-09-28: **backup/restore stays in the MVP** — `T-51`–`T-54` confirmed as required work (decision 12 holds).
 - Nothing outstanding.
 
 > [!danger] The one risk worth restating

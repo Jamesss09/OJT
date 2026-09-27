@@ -164,9 +164,32 @@ Index: [[InternTrack Index]] · Scope: [[InternTrack Overview]] · Stack: [[Inte
   - Two mutation-tested guards: reintroducing the deleted `(minutes/60).toFixed(2)`
     formatter fails **6** tests, including a property check that the echo equals
     `formatDuration(toMinutes(x))` for 9 inputs. Dropping the blur gate fails 1.
-- [ ] `T-23` `components/ActivityInput.tsx`. **S** · deps: `T-12`
+- [x] `T-23` `components/ActivityInput.tsx`. **S** · deps: `T-12`
   - Multiline, 2000-char cap with counter, trims on save.
-  - AC: whitespace-only input is blocked by R-3.
+  - AC: whitespace-only input is blocked by R-3. **Met** — the tests run the real
+    `validateEntry` and feed its output into the real component, so the assertion
+    is that the R-3 rule reaches the screen, not that a message string was typed
+    into a prop. Change the wording in `T-13` and these still pass; change the
+    *rule* and they fail.
+  - The counter counts the **trimmed** length, because that is what R-3 caps and
+    what gets stored. Counting raw would let the counter and the error disagree
+    on 2000 chars plus a trailing newline. It also makes a whitespace-only field
+    read `0 / 2000`, which is an honest hint at why saving is refused.
+  - `maxLength` **is** set here, unlike on `HourInput`. There, truncation changes
+    a *number* and the stored figure would disagree with the visible text — a
+    quantitative lie. Here it drops the tail of an over-long description, which
+    is visible in the counter, and it makes the over-length state **impossible**
+    rather than merely rejected. `validateEntry`'s branch stays as defence in
+    depth for other callers such as the `T-53` JSON restore.
+  - Nothing is trimmed on blur: trimming mid-typing moves the caret and eats the
+    space being typed into. R-3's trim belongs to `validateEntry`, at submit.
+  - Counter goes to `danger` within 200 chars of the cap, and never before, so
+    the warning keeps meaning something.
+  - A last `describe` asserts `HourInput` and `ActivityInput` gate on blur, honour
+    `revealError`, and derive their readouts from the stored value. One field
+    changing without the other would leave the form inconsistent.
+  - 21 tests. Fixture pins a fixed `now`, otherwise `dateISO` becomes a future
+    date the day after the tests were written.
 - [ ] `T-24` `app/index.tsx` (Today). **L** · deps: `T-21`, `T-22`, `T-23`
   - Hour + activity input, today's total, week total, progress bar, logged/not-logged state, "edit" path.
   - AC: full log-and-save in < 30 s; edits an existing day instead of duplicating it; empty state present.
@@ -262,7 +285,7 @@ Index: [[InternTrack Index]] · Scope: [[InternTrack Overview]] · Stack: [[Inte
 | `T-18` | Repository tests | 3 | M | **done** | `T-17` |
 | `T-21` | Entry hooks | 4 | S | **done** | `T-18` |
 | `T-22` | `HourInput` | 4 | M | **done** | `T-11` |
-| `T-23` | `ActivityInput` | 4 | S | todo | `T-12` |
+| `T-23` | `ActivityInput` | 4 | S | **done** | `T-12` |
 | `T-24` | Today screen | 4 | L | todo | `T-21` |
 | `T-25` | Log editor | 4 | M | todo | `T-24` |
 | `T-26` | `ProgressBar` | 4 | S | todo | `T-24` |
@@ -286,11 +309,12 @@ Index: [[InternTrack Index]] · Scope: [[InternTrack Overview]] · Stack: [[Inte
 
 | | |
 | --- | --- |
-| Tasks done | 15 / 35 |
+| Tasks done | 16 / 35 |
 | In progress | 0 |
-| Current | `T-23` — `ActivityInput` (then `T-24` Today, then the first EAS build) |
-| Tests | 220 passing (`src/lib` 80, `src/db` 101, `src/hooks` 24, `src/components` 15) · `hours.ts` 100% branch, `validation.ts` 100% stmt, `client.ts` 100% stmt |
+| Current | `T-24` — Today screen (then the first EAS build, `T-61`) |
+| Tests | 241 passing (`src/lib` 80, `src/db` 101, `src/hooks` 24, `src/components` 36) · `hours.ts` 100% branch, `validation.ts` 100% stmt, `client.ts` 100% stmt |
 | Gates | `tsc` ✅ · `lint` ✅ · `expo install --check` ✅ · `expo-doctor` 21/21 ✅ |
+| App icon | Done, ahead of `T-64`. Assets generated from `logo/interntrack_logo.png`; see [[InternTrack Index]] decision 17. No longer the stock Expo logo |
 | First build needed | `T-61`, after `T-24` per decision 13. `openInternTrackDatabase()` is still the **only** path not covered by tests — it calls the native opener |
 | Blocking decision | none — EAS account is created and logged in, so `T-61` has no login blocker |
 | Known gap | the focus-refetch path in `useAsyncData` is untested: `useFocusEffect` needs a navigation container, so it is mocked away. Thin (calls `reload()`) and covered by `T-61` |
