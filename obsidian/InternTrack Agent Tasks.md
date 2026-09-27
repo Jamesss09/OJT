@@ -134,8 +134,18 @@ Index: [[InternTrack Index]] · Scope: [[InternTrack Overview]] · Stack: [[Inte
 
 > G1: a day logged in under 30 seconds. This is the make-or-break flow — see R-13.
 
-- [ ] `T-21` `useEntryForDate` + `useLogEntryMutation`. **S** · deps: `T-18`
+- [x] `T-21` `useEntryForDate` + `useLogEntryMutation`. **S** · deps: `T-18`
   - AC: save → SQLite → refetch; failure keeps the draft and surfaces the reason.
+  - Done: `src/hooks/useAsyncData.ts` (shared read primitive) + `src/hooks/useEntries.ts`.
+    24 tests. AC met — `useLogEntryMutation.save` returns a result object rather than
+    throwing, so `T-25` can show the reason and keep the intern's typing; the mutation
+    does not refetch, so the caller reloads, which keeps the dependency direction obvious.
+  - Two bugs designed out and proven by test (both guards mutation-tested):
+    a **superseded slow read overwriting a newer one** (a `cancelled` flag in the effect
+    cleanup), and **stale data for a day you have moved off** (the result is tagged with
+    the key that produced it, so a mismatched key reads as "nothing yet"). The second is
+    why the hook has no "mark as loading" setState — see `T-62` if a screen ever wants
+    a refresh indicator, which needs one for a stated reason.
 - [ ] `T-22` `components/HourInput.tsx`. **M** · deps: `T-11`
   - Numeric keypad, decimal entry, live "7.5 h" echo, inline error.
   - AC: rejects > 24 h inline before submit.
@@ -235,7 +245,7 @@ Index: [[InternTrack Index]] · Scope: [[InternTrack Overview]] · Stack: [[Inte
 | `T-16` | settings repo | 3 | S | **done** | `T-15` |
 | `T-17` | entries repo | 3 | M | **done** | `T-15` |
 | `T-18` | Repository tests | 3 | M | **done** | `T-17` |
-| `T-21` | Entry hooks | 4 | S | todo | `T-18` |
+| `T-21` | Entry hooks | 4 | S | **done** | `T-18` |
 | `T-22` | `HourInput` | 4 | M | todo | `T-11` |
 | `T-23` | `ActivityInput` | 4 | S | todo | `T-12` |
 | `T-24` | Today screen | 4 | L | todo | `T-21` |
@@ -261,13 +271,14 @@ Index: [[InternTrack Index]] · Scope: [[InternTrack Overview]] · Stack: [[Inte
 
 | | |
 | --- | --- |
-| Tasks done | 13 / 35 |
+| Tasks done | 14 / 35 |
 | In progress | 0 |
-| Current | `T-21` — entry hooks (`useEntryForDate`, `useLogEntryMutation`) |
-| Tests | 181 passing (`src/lib` 80, `src/db` 101) · `hours.ts` 100% branch, `validation.ts` 100% stmt, `client.ts` 100% stmt |
+| Current | `T-22` — `HourInput` (then `T-23`, then `T-24` Today, then the first EAS build) |
+| Tests | 205 passing (`src/lib` 80, `src/db` 101, `src/hooks` 24) · `hours.ts` 100% branch, `validation.ts` 100% stmt, `client.ts` 100% stmt |
 | Gates | `tsc` ✅ · `lint` ✅ · `expo install --check` ✅ · `expo-doctor` 21/21 ✅ |
-| First build needed | `T-61` — the **only** path not covered by tests is `openInternTrackDatabase()`, which calls the native opener |
-| Blocking decision | none — EAS account is now created and logged in, so `T-61` has no login blocker |
+| First build needed | `T-61`, after `T-24` per decision 13. `openInternTrackDatabase()` is still the **only** path not covered by tests — it calls the native opener |
+| Blocking decision | none — EAS account is created and logged in, so `T-61` has no login blocker |
+| Known gap | the focus-refetch path in `useAsyncData` is untested: `useFocusEffect` needs a navigation container, so it is mocked away. Thin (calls `reload()`) and covered by `T-61` |
 
 ## Related
 

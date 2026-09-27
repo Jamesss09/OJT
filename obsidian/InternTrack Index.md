@@ -41,14 +41,23 @@ A React Native (Expo) mobile app where an intern records, reviews and totals the
 | 10 | **Required-hours target only** — no programme end date in v1. | Simpler. `app_settings` is a key/value table, so an end date can be added later with **no migration**. |
 | 11 | **Capture the intern's name** (`internName` in Settings). | Makes exported reports self-labelling. Already in the schema. |
 | 12 | **Export / backup is IN the MVP**, not deferred to Phase 7. `T-51`–`T-54` are now required work. | Reverses the earlier "not MVP" call. Local-only means the log exists on one phone and nowhere else; a phone lost or wiped takes every logged hour with it. The app is not fit for real OJT reporting without a way out. See the risk note below. |
-| 13 | **First EAS build is batched to the end of Phase 3**, not run as soon as the DB layer exists. | Under Option B each build costs one of ~15 free Android builds/month, and no screen exists to look at yet. Databases are verified by executing the real migration SQL in Node (`T-14b`), so the build is spent on UI instead. |
+| 13 | **First EAS build happens after Phase 4**, once the Today screen exists — not as soon as the DB layer does. | Under Option B each build costs one of ~15 free Android builds/month, and a build of nothing but placeholder screens only proves the app launches. Building after `T-24` validates the boot path *and* the core logging loop in one build. Supersedes the earlier "end of Phase 3" wording, which was written when the DB layer was the open question. `openInternTrackDatabase()` is still a path only a build can exercise — it is just exercised by a later, more informative build. |
 | 14 | **Migration 1 may still be amended; nothing has shipped.** Once `T-61` produces an APK, that closes. | `T-16` found that `key TEXT PRIMARY KEY` accepts `NULL` in SQLite — only `INTEGER PRIMARY KEY` implies `NOT NULL`, being a rowid alias. A NULL-keyed row would never match `ON CONFLICT(key)`, so every read would see a phantom setting. Cheaper to amend v1 now than to ship a v2 migration that rebuilds a table before anyone has data. After `T-61` the forward-only rule applies without exception. |
+| 15 | **No server-state library. Reads are local SQLite plus refetch-on-focus, in ~90 hand-written lines.** | Checked rather than assumed: Expo's [local-first guide](https://docs.expo.dev/guides/local-first/) recommends Legend-State, TinyBase, Yjs, Jazz, RxDB and friends, but every one of them exists to solve *sync* — CRDTs, conflict resolution, a server, multiple devices. Decisions 1 and 2 rule all of that out, so the page offered nothing applicable and confirmed `expo-sqlite` is the right persistence layer. What a query library actually buys is latency hiding, retry and cache sharing. There is no network to be slow, so that leaves invalidation — and `useFocusEffect` plus `reload()` does that in one line. The dependency graph is unchanged, which matters more than usual under Option B. Revisit only if a read ever leaves the device. |
+| 16 | **The repository's write input is an alias of `ValidEntry`, not a restated copy.** | `validation.ts` and `entries.repo.ts` both exported an `EntryDraft` meaning different things — one the raw form, one the storage shape. Aliasing (`type EntryInput = ValidEntry`) makes "validate before you write" a compile-time guarantee: change the validated shape and every drifted call site fails to typecheck. Found while writing `T-21`, before it could bite. |
 
 ## Current phase
 
-**Phase 3 in progress. `T-01`–`T-05`, `T-11`–`T-18`, `T-14b` done (13/35).** The app lives in `interntrack/` (a subfolder of this repo, so `obsidian/` stays a sibling).
+**Phase 4 in progress. `T-01`–`T-05`, `T-11`–`T-18`, `T-14b`, `T-21` done (14/35).** The app lives in `interntrack/` (a subfolder of this repo, so `obsidian/` stays a sibling).
 
-Gates green: `tsc --noEmit` · `expo lint` · `expo install --check` · `expo-doctor` 21/21 · **112 Jest tests**.
+Gates green: `tsc --noEmit` · `expo lint` · `expo install --check` · `expo-doctor` 21/21 · **205 Jest tests**.
+
+> [!note] Hook tests needed no new dependency
+> `react-test-renderer` already arrives via `jest-expo`, and the hooks render no native
+> components, so `@testing-library/react` was not added. The one seam that needs stubbing
+> is `useFocusEffect`, which calls `useNavigation()` *before* its effect and so throws
+> without a navigation container — mocking it is the accepted gap, recorded in the
+> progress table and covered by `T-61`.
 
 > [!warning] R-1 was amended in `T-11`
 > Decimal hours are now an **input-only** format. A `minutes → "7.5 h"` formatter was written, caught by its own tests, and deleted: minutes are not always expressible in 2-decimal hours, so it lied for 2 of every 3 valid values. Output is always `formatDuration()` (`"7h 20m"`). See [[InternTrack Rules]].

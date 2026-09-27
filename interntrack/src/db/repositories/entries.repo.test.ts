@@ -4,7 +4,7 @@ import {
   DEFAULT_PAGE_SIZE,
   MAX_PAGE_SIZE,
   type Entry,
-  type EntryDraft,
+  type EntryInput,
   clampPageSize,
   deleteByDate,
   getByDate,
@@ -23,7 +23,7 @@ const draft = (
   entryDate: string,
   minutes: number,
   activity = 'Worked on the build',
-): EntryDraft => ({ entryDate, minutes, activity });
+): EntryInput => ({ entryDate, minutes, activity });
 
 async function seeded(): Promise<TestDatabase> {
   const db = createTestDatabase();

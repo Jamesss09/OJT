@@ -32,6 +32,8 @@
  * This module imports no React (R-8).
  */
 
+import type { ValidEntry } from '@/lib/validation';
+
 import type { QueryableDatabase, TransactableDatabase } from '../client';
 
 /** Ceiling on a single history page, so a bad limit cannot pull the whole log. */
@@ -52,12 +54,20 @@ export type Entry = {
   updatedAt: number;
 };
 
-/** What a caller supplies to log or edit a day. `id` is the database's business. */
-export type EntryDraft = {
-  entryDate: string;
-  minutes: number;
-  activity: string;
-};
+/**
+ * What a caller supplies to log or edit a day.
+ *
+ * Exactly `ValidEntry` from [[InternTrack validation]] — the output of
+ * `validateEntry`, and nothing else. Aliasing rather than restating it makes
+ * the "validate before you write" rule a compile-time guarantee instead of a
+ * comment: if the validated shape ever changes, this changes with it and the
+ * call site that has drifted fails to typecheck.
+ *
+ * Not to be confused with `EntryDraft` in `src/lib/validation.ts`, which is the
+ * raw *form* input — `dateISO`, `hoursText`, `activity`, all strings, none of it
+ * trusted yet.
+ */
+export type EntryInput = ValidEntry;
 
 /** Aggregate for a set of days. Minutes are exact integers, never floats. */
 export type Totals = {
@@ -116,7 +126,7 @@ export async function getByDate(db: QueryableDatabase, entryDate: string): Promi
  */
 export async function upsert(
   db: TransactableDatabase,
-  draft: EntryDraft,
+  draft: EntryInput,
   now: Date = new Date(),
 ): Promise<Entry> {
   const timestamp = now.getTime();
