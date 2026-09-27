@@ -130,7 +130,7 @@ Design notes:
 
 ```sql
 CREATE TABLE IF NOT EXISTS app_settings (
-  key        TEXT PRIMARY KEY,
+  key        TEXT PRIMARY KEY NOT NULL,
   value      TEXT NOT NULL,
   updated_at INTEGER NOT NULL
 );
@@ -153,6 +153,27 @@ CREATE TABLE IF NOT EXISTS app_settings (
 > repository is more consistent than a migration that seeds some of them.
 
 Settings live in SQLite rather than AsyncStorage so reports can read them in the same query as entries and the app has exactly one persistence mechanism.
+
+> [!warning] `value` is unconstrained `TEXT`, so every read re-validates
+> Nothing at the database layer checks what is inside `app_settings.value`. A
+> hand-edited row, a restore from `T-53`, or a future migration that writes the
+> wrong shape would otherwise surface as `NaN` in a progress bar or a reminder
+> that never fires. The settings repository therefore runs every value through a
+> sanitiser that falls back to the default, treating a corrupt row exactly like
+> an absent one — the safe reading, because the defaults are always coherent.
+> Values are also sanitised on the way *in*, so the stored rows are already
+> correct and a future reader that forgets to sanitise still gets usable data.
+
+> [!note] `NOT NULL` on the key column is not redundant
+> SQLite only implies `NOT NULL` for `INTEGER PRIMARY KEY`, because that is an
+> alias for the rowid. A `TEXT PRIMARY KEY` is an ordinary unique index and will
+> happily store a `NULL`, which would never match `ON CONFLICT(key)` — so the
+> upsert would leave it in place and every read would see a phantom setting.
+
+> [!info] `reminderId` is stored here but is not a setting
+> The scheduled notification id (see Reminders below) is bookkeeping, not user
+> configuration, so it has its own `readReminderId`/`writeReminderId` accessors
+> and never appears in the `Settings` object the Settings screen renders.
 
 ## Data flow — saving a day
 

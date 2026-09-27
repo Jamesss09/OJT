@@ -42,10 +42,11 @@ A React Native (Expo) mobile app where an intern records, reviews and totals the
 | 11 | **Capture the intern's name** (`internName` in Settings). | Makes exported reports self-labelling. Already in the schema. |
 | 12 | **Export / backup is IN the MVP**, not deferred to Phase 7. `T-51`–`T-54` are now required work. | Reverses the earlier "not MVP" call. Local-only means the log exists on one phone and nowhere else; a phone lost or wiped takes every logged hour with it. The app is not fit for real OJT reporting without a way out. See the risk note below. |
 | 13 | **First EAS build is batched to the end of Phase 3**, not run as soon as the DB layer exists. | Under Option B each build costs one of ~15 free Android builds/month, and no screen exists to look at yet. Databases are verified by executing the real migration SQL in Node (`T-14b`), so the build is spent on UI instead. |
+| 14 | **Migration 1 may still be amended; nothing has shipped.** Once `T-61` produces an APK, that closes. | `T-16` found that `key TEXT PRIMARY KEY` accepts `NULL` in SQLite — only `INTEGER PRIMARY KEY` implies `NOT NULL`, being a rowid alias. A NULL-keyed row would never match `ON CONFLICT(key)`, so every read would see a phantom setting. Cheaper to amend v1 now than to ship a v2 migration that rebuilds a table before anyone has data. After `T-61` the forward-only rule applies without exception. |
 
 ## Current phase
 
-**Phase 3 in progress. `T-01`–`T-05`, `T-11`–`T-15`, `T-14b` done (10/35).** The app lives in `interntrack/` (a subfolder of this repo, so `obsidian/` stays a sibling).
+**Phase 3 in progress. `T-01`–`T-05`, `T-11`–`T-16`, `T-14b` done (11/35).** The app lives in `interntrack/` (a subfolder of this repo, so `obsidian/` stays a sibling).
 
 Gates green: `tsc --noEmit` · `expo lint` · `expo install --check` · `expo-doctor` 21/21 · **112 Jest tests**.
 

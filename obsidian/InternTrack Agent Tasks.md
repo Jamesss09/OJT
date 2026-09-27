@@ -107,9 +107,15 @@ Index: [[InternTrack Index]] · Scope: [[InternTrack Overview]] · Stack: [[Inte
   - Node's `node:sqlite` types are hand-declared instead of adding `@types/node`, which would put `NodeJS.Timeout` into the type environment of RN app code.
   - `openInternTrackDatabase()` is the one function that cannot be tested this way — it calls the native opener. Covered by `T-61`.
   - AC: 32 new tests execute the real migration SQL, including every `CHECK` constraint, the rollback path, and `initDatabase` idempotency with data preserved.
-- [ ] `T-16` `repositories/settings.repo.ts`. **S** · deps: `T-15`
+- [x] `T-16` `repositories/settings.repo.ts`. **S** · deps: `T-15`
   - Typed get/set for the keys in [[InternTrack Architecture]]; defaults applied on first read.
-  - AC: reads before any write return the documented defaults.
+  - `QueryableDatabase` / `TransactableDatabase` added to `client.ts` so repositories take a database structurally and a real `SQLiteDatabase` satisfies them.
+  - `app_settings.value` is `TEXT` and unconstrained, so every read re-validates through a sanitiser that falls back to the default. A corrupt row is treated as an absent one, which is the safe reading.
+  - `reminderId` has its own accessors and stays out of the `Settings` shape, so reading configuration never surfaces OS bookkeeping.
+  - AC: reads before any write return the documented defaults. **26 new tests.**
+  - Two bugs found by writing the tests, both recorded in [[InternTrack Rules]] R-15:
+    - The `node:sqlite` double's `getFirstAsync` accepted only `source` and **silently ignored bind parameters**, so every `getFirstAsync(sql, [key])` lookup returned nothing. Fixing the signature then exposed that `TestDatabase` was declared as an intersection, which made the 1-arg `MigratableDatabase` overload shadow the 2-arg one.
+    - `key TEXT PRIMARY KEY` **accepts `NULL` in SQLite** — only `INTEGER PRIMARY KEY` implies `NOT NULL`, being a rowid alias. A NULL-keyed row would never match `ON CONFLICT(key)`, so every read would see a phantom setting. Migration 1 amended to add `NOT NULL`; safe because no build has shipped, and the regression test was confirmed to fail when the fix is reverted.
 - [ ] `T-17` `repositories/entries.repo.ts`. **M** · deps: `T-15`
   - `getByDate`, `upsert` (R-2), `delete`, `listRange`, `totalsFor`, `overallTotals`, `historyPage`.
   - AC: all queries parameterised; aggregates `COALESCE`d (R-7).
@@ -221,7 +227,7 @@ Index: [[InternTrack Index]] · Scope: [[InternTrack Overview]] · Stack: [[Inte
 | `T-14` | `db/client.ts` | 3 | S | **done** | `T-05` |
 | `T-15` | Migrations v1 | 3 | M | **done** | `T-14` |
 | `T-14b` | SQLite test harness | 3 | M | **done** | `T-15` |
-| `T-16` | settings repo | 3 | S | todo | `T-15` |
+| `T-16` | settings repo | 3 | S | **done** | `T-15` |
 | `T-17` | entries repo | 3 | M | todo | `T-15` |
 | `T-18` | Repository tests | 3 | M | todo | `T-17` |
 | `T-21` | Entry hooks | 4 | S | todo | `T-18` |
@@ -250,13 +256,13 @@ Index: [[InternTrack Index]] · Scope: [[InternTrack Overview]] · Stack: [[Inte
 
 | | |
 | --- | --- |
-| Tasks done | 10 / 35 |
+| Tasks done | 11 / 35 |
 | In progress | 0 |
-| Current | `T-16` — `repositories/settings.repo.ts` |
-| Tests | 112 passing (`src/lib` 80, `src/db` 32) · `hours.ts` 100% branch, `validation.ts` 100% stmt, `client.ts` 100% stmt |
+| Current | `T-17` — `repositories/entries.repo.ts` |
+| Tests | 138 passing (`src/lib` 80, `src/db` 58) · `hours.ts` 100% branch, `validation.ts` 100% stmt, `client.ts` 100% stmt |
 | Gates | `tsc` ✅ · `lint` ✅ · `expo install --check` ✅ · `expo-doctor` 21/21 ✅ |
 | First build needed | `T-61` — the **only** path not covered by tests is `openInternTrackDatabase()`, which calls the native opener |
-| Blocking decision | none — export scope resolved, see [[InternTrack Index]] |
+| Blocking decision | none — EAS account is now created and logged in, so `T-61` has no login blocker |
 
 ## Related
 

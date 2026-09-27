@@ -10,7 +10,12 @@
  * against a real SQLite engine (`T-14`).
  */
 
-import { type SQLiteDatabase, openDatabaseAsync } from 'expo-sqlite';
+import {
+  type SQLiteBindParams,
+  type SQLiteDatabase,
+  type SQLiteRunResult,
+  openDatabaseAsync,
+} from 'expo-sqlite';
 
 import { type Migration, MIGRATIONS, assertMigrationsValid, pendingMigrations } from './migrations';
 
@@ -33,6 +38,28 @@ export type MigratableDatabase = {
   execAsync(source: string): Promise<void>;
   getFirstAsync<T>(source: string): Promise<T | null>;
   withExclusiveTransactionAsync(task: (txn: MigratableDatabase) => Promise<void>): Promise<void>;
+};
+
+/**
+ * The slice of `SQLiteDatabase` that repositories use.
+ *
+ * Mirrors the real signatures in the SDK 57 `SQLiteDatabase` API exactly, so a
+ * genuine `SQLiteDatabase` satisfies it and `SQLiteProvider`'s `useSQLiteContext()`
+ * result can be passed straight in. Tests pass the `node:sqlite` stand-in from
+ * `T-14b` instead.
+ *
+ * The parameter types come from `expo-sqlite` via `import type`, so they are
+ * erased at runtime and importing them in a Jest test is safe.
+ */
+export type QueryableDatabase = {
+  getAllAsync<T>(source: string, params?: SQLiteBindParams): Promise<T[]>;
+  getFirstAsync<T>(source: string, params?: SQLiteBindParams): Promise<T | null>;
+  runAsync(source: string, params?: SQLiteBindParams): Promise<SQLiteRunResult>;
+};
+
+/** Adds multi-statement writes. Use when one logical change spans several rows. */
+export type TransactableDatabase = QueryableDatabase & {
+  withTransactionAsync(task: () => Promise<void>): Promise<void>;
 };
 
 /** Read the schema version out of the database header. `0` when never migrated. */

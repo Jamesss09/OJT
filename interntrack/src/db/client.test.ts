@@ -301,4 +301,31 @@ describe('app_settings schema', () => {
     // cannot know, so defaults must not be baked into schema v1.
     expect(await db.getFirstAsync('SELECT * FROM app_settings')).toBeNull();
   });
+
+  it('rejects a NULL key, which a bare TEXT PRIMARY KEY would have accepted', async () => {
+    // SQLite only implies NOT NULL for INTEGER PRIMARY KEY, because that is an
+    // alias for the rowid. A TEXT PRIMARY KEY is an ordinary unique index, so
+    // without the explicit NOT NULL this insert succeeds and parks a NULL-keyed
+    // row in the table. Nothing would notice at write time, but ON CONFLICT(key)
+    // would then never match it, and every read would see a phantom setting.
+    await expect(
+      db.runAsync('INSERT INTO app_settings (key, value, updated_at) VALUES (NULL, ?, 0)', [
+        'phantom',
+      ]),
+    ).rejects.toThrow(/NOT NULL/);
+  });
+
+  it('stores distinct keys without either of them becoming NULL', async () => {
+    await db.runAsync('INSERT INTO app_settings (key, value, updated_at) VALUES (?, ?, 0)', [
+      'internName',
+      'James Quig',
+    ]);
+    await db.runAsync('INSERT INTO app_settings (key, value, updated_at) VALUES (?, ?, 0)', [
+      'reminderTime',
+      '07:30',
+    ]);
+
+    const rows = await db.getAllAsync<{ key: string | null }>('SELECT key FROM app_settings');
+    expect(rows.map((row) => row.key).sort()).toEqual(['internName', 'reminderTime']);
+  });
 });

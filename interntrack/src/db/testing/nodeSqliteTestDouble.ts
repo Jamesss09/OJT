@@ -51,12 +51,26 @@ function positionalArgs(rest: readonly unknown[]): SupportedValueType[] {
   return rest as SupportedValueType[];
 }
 
-export type TestDatabase = MigratableDatabase & {
+/**
+ * The surface this stand-in exposes.
+ *
+ * Declared standalone rather than as `MigratableDatabase & {...}`. An
+ * intersection gives the two `getFirstAsync` declarations the status of an
+ * overload list, and the 1-arg one from `MigratableDatabase` comes first — so
+ * `getFirstAsync(sql, [key])` was a type error, and would have been a silent
+ * wrong answer if it had compiled. A rest parameter is assignable to the
+ * narrower 1-arg signature, so this still satisfies `MigratableDatabase` and can
+ * be handed to `initDatabase`.
+ */
+export type TestDatabase = {
+  execAsync(source: string): Promise<void>;
+  runAsync(source: string, ...params: unknown[]): Promise<RunResult>;
+  getFirstAsync<T>(source: string, ...params: unknown[]): Promise<T | null>;
+  getAllAsync<T>(source: string, ...params: unknown[]): Promise<T[]>;
+  withExclusiveTransactionAsync(task: (txn: MigratableDatabase) => Promise<void>): Promise<void>;
+  withTransactionAsync(task: () => Promise<void>): Promise<void>;
   /** Escape hatch for assertions that need the raw engine. */
   readonly raw: DatabaseSync;
-  /** Not used by `migrateDatabase`, but the repositories in T-15..T-17 will. */
-  runAsync(source: string, ...params: unknown[]): Promise<RunResult>;
-  getAllAsync<T>(source: string, ...params: unknown[]): Promise<T[]>;
   close(): void;
 };
 
@@ -80,8 +94,12 @@ export function createTestDatabase(name = ':memory:'): TestDatabase {
     // Parameter types are annotated rather than inferred: `TestDatabase`
     // intersects `MigratableDatabase` with a self-referential transaction
     // signature, and TypeScript gives up on contextual typing through that.
-    async getFirstAsync<T>(source: string): Promise<T | null> {
-      const row = raw.prepare(source).get();
+    //
+    // The rest parameter is not decoration — an earlier version of this double
+    // took only `source` and silently ignored bind parameters, so every
+    // `getFirstAsync(sql, [key])` lookup in a repository returned nothing.
+    async getFirstAsync<T>(source: string, ...params: unknown[]): Promise<T | null> {
+      const row = raw.prepare(source).get(...positionalArgs(params));
       return (row as T | undefined) ?? null;
     },
 
@@ -96,6 +114,17 @@ export function createTestDatabase(name = ':memory:'): TestDatabase {
         raw.exec('COMMIT');
       } catch (error) {
         // Mirrors expo-sqlite: a throwing task rolls the whole thing back.
+        raw.exec('ROLLBACK');
+        throw error;
+      }
+    },
+
+    async withTransactionAsync(task) {
+      raw.exec('BEGIN');
+      try {
+        await task();
+        raw.exec('COMMIT');
+      } catch (error) {
         raw.exec('ROLLBACK');
         throw error;
       }

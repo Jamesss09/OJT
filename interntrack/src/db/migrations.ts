@@ -48,8 +48,13 @@ export const MIGRATIONS: readonly Migration[] = [
       -- by the settings repository rather than inserted by the migration,
       -- because programStartDate defaults to the device's today and a
       -- migration cannot know it.
+      --
+      -- NOT NULL on the key column is explicit, not redundant. SQLite only
+      -- implies it for INTEGER PRIMARY KEY (a rowid alias); a TEXT PRIMARY KEY
+      -- happily accepts NULL and stores it, which would let two "same key" rows
+      -- coexist and break the ON CONFLICT upsert.
       CREATE TABLE IF NOT EXISTS app_settings (
-        key        TEXT PRIMARY KEY,
+        key        TEXT PRIMARY KEY NOT NULL,
         value      TEXT NOT NULL,
         updated_at INTEGER NOT NULL
       );

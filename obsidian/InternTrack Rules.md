@@ -165,6 +165,7 @@ A task is done when all of these hold:
 - [ ] `npx tsc --noEmit` and `npx expo lint` are clean.
 - [ ] Tests pass (`npx jest`).
 - [ ] **A test that encodes a bug is a failing test.** If a test was written to match the implementation rather than the intent, rewrite it against the intent. See the `errors.hours` / `hoursText` case in `T-13`.
+- [ ] **A newly written regression test is confirmed to fail without its fix.** Reverting the change and re-running is the only way to know the test is not just passing. Done for the `app_settings.key NOT NULL` fix in `T-16`; the `node:sqlite` double's `getFirstAsync` case is the counterexample — it had been silently dropping bind parameters, and the tests that used it had been written to match that broken behaviour.
 - [ ] Any new dependency is added to [[InternTrack Tech Stack]] with a reason.
 - [ ] Any rule this change touches is updated **in the same commit**.
 - [ ] The task's checkbox in [[InternTrack Agent Tasks]] is ticked and the status table updated.
