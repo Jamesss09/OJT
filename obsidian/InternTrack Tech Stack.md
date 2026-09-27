@@ -24,7 +24,7 @@ Pinned by **Expo SDK 57** — do not install these by hand, let `npx expo instal
 | React Native | **0.86.x** | SDK 57 targets 0.86. npm `latest` is 0.87.1 — *do not use it.* |
 | React | **19.2.3** | |
 | Node.js | **≥ 22.13.x** | SDK 57 minimum. |
-| TypeScript | **5.x** (template-pinned) | npm `latest` is **7.0.2** — do not install. See rules. |
+| TypeScript | **~6.0.3** (template-pinned) | npm `latest` is **7.0.2** — do not install. TS 6 is stricter and needs `src/types/global.d.ts` to type `*.css` imports. See rules. |
 | Android | min **7.0**, `compileSdk`/`targetSdk` **36** | |
 | iOS | min **16.4**, Xcode **26.4+** | |
 | Hermes | on (default) | |
@@ -40,10 +40,10 @@ Install with `npx expo install <pkg>` so versions match the SDK.
 | `expo-sqlite` | 57.0.3 | **The database.** Real SQL, exact integer arithmetic, survives restarts, no native config. `AsyncStorage` can't aggregate and can't do transactions properly. |
 | `expo-notifications` | 57.0.21 | Local scheduled daily reminder (`T-41`/`T-42`). Local only — no push, no server. |
 | `zustand` | 5.0.15 | Tiny UI-state store. Holds form drafts + filter state, never a second copy of the DB. |
-| `@react-native-community/datetimepicker` | 9.2.1 | Native date picker for logging a past day. |
-| `react-native-safe-area-context` | 5.10.0 | Notches / gesture bars. Required by expo-router. |
+| `@react-native-community/datetimepicker` | **9.1.0** | Native date picker. ⚠️ npm `latest` is 9.2.1 but SDK 57 wants 9.1.0 — see R-11. |
+| `react-native-safe-area-context` | 5.7.0 | Notches / gesture bars. Required by expo-router. |
 | `expo-haptics` | 57.0.3 | Save/delete confirmation tick. Small delight, one line. |
-| `react-native-reanimated` | 4.7.0 | Progress bar + chart animation. |
+| `react-native-reanimated` | 4.5.1 | Progress bar + chart animation. Pairs with `react-native-worklets` 0.10.1. |
 | `expo-dev-client` | 57.0.19 | Dev builds so native modules (SQLite, notifications) work during development. |
 
 ## Build / delivery

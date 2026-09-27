@@ -45,24 +45,27 @@ flowchart TD
 ## Folder structure
 
 ```
-interntrack/
-├─ app/                          # expo-router — file-based routes
-│  ├─ _layout.tsx                # providers: SQLiteProvider, SafeArea, theme
-│  ├─ index.tsx                  # Today
-│  ├─ history.tsx                # History
-│  ├─ reports.tsx                # Reports
-│  ├─ settings.tsx               # Settings
-│  └─ log/
-│     └─ [date].tsx              # add/edit one day  (e.g. /log/2026-09-27)
-│
+interntrack/                     # the app lives in a subfolder of the repo
 ├─ src/
+│  ├─ app/                       # expo-router — file-based routes (TEMPLATE-DEFAULT LOCATION)
+│  │  ├─ _layout.tsx             #   providers: SQLiteProvider, SafeArea, theme
+│  │  ├─ index.tsx               #   Today
+│  │  ├─ history.tsx             #   History
+│  │  ├─ reports.tsx             #   Reports
+│  │  ├─ settings.tsx            #   Settings
+│  │  └─ log/
+│  │     └─ [date].tsx           #   add/edit one day  (e.g. /log/2026-09-27)
 │  ├─ components/                # presentational, reusable
+│  │  ├─ themed-text.tsx         #   from template — KEEP, don't fork
+│  │  ├─ themed-view.tsx         #   from template — KEEP
 │  │  ├─ HourInput.tsx           #   numeric entry, decimal hours
 │  │  ├─ ActivityInput.tsx       #   multiline text
 │  │  ├─ ProgressBar.tsx
 │  │  ├─ DayRow.tsx
 │  │  ├─ TotalTile.tsx
 │  │  └─ EmptyState.tsx
+│  ├─ constants/
+│  │  └─ theme.ts                # from template — design tokens live HERE
 │  ├─ db/
 │  │  ├─ client.ts               # openDatabaseAsync + PRAGMAs
 │  │  ├─ migrations.ts           # versioned, ordered migration list
@@ -71,6 +74,8 @@ interntrack/
 │  │     ├─ entries.repo.ts
 │  │     └─ settings.repo.ts
 │  ├─ hooks/
+│  │  ├─ use-theme.ts            # from template — KEEP
+│  │  ├─ use-color-scheme.ts(.web.ts)  # from template — KEEP
 │  │  ├─ useEntryForDate.ts
 │  │  ├─ useLogEntryMutation.ts  # save / delete, invalidates
 │  │  ├─ useReportTotals.ts
@@ -80,17 +85,17 @@ interntrack/
 │  │  ├─ hours.ts                #   toMinutes, fromMinutes, format, validate
 │  │  ├─ dates.ts                #   today, weekRange, monthRange, formatting
 │  │  └─ validation.ts           #   validateEntry -> Result<Entry, Errors>
-│  ├─ store/
-│  │  └─ uiStore.ts              # draft form state, history filters
 │  ├─ notifications/
 │  │  └─ scheduler.ts            # schedule / cancel the daily reminder
-│  └─ theme/
-│     ├─ tokens.ts
-│     └─ ThemeProvider.tsx
+│  ├─ store/
+│  │  └─ uiStore.ts              # draft form state, history filters
+│  ├─ types/
+│  │  └─ global.d.ts             # declares *.css (TS6 needs it for global.css)
+│  └─ global.css                 # from template — web styling only
 │
 ├─ assets/                       # icons, splash
-├─ app.json  eas.json  package.json  tsconfig.json
-└─ __tests__/                    # co-located *.test.ts next to the file
+├─ app.json  eas.json  package.json  tsconfig.json  eslint.config.js
+└─ *.test.ts                     # co-located next to the file it tests
 ```
 
 ## Data model
@@ -227,16 +232,16 @@ On boot: read `user_version`, run every migration with a higher version, each in
 
 ## Navigation
 
-expo-router, file-based. No separate navigation config.
+expo-router, file-based. No separate navigation config. Routes live in **`src/app/`** (the template's location — see the folder structure above).
 
 | File | Path | Notes |
 | --- | --- | --- |
-| `app/_layout.tsx` | — | `SQLiteProvider` (runs migrations) → `SafeAreaProvider` → `Stack` |
-| `app/index.tsx` | `/` | Today. The 30-second flow. |
-| `app/log/[date].tsx` | `/log/2026-09-27` | Add/edit one day. `date` is a validated param. |
-| `app/history.tsx` | `/history` | Grouped list. |
-| `app/reports.tsx` | `/reports` | Totals + progress. |
-| `app/settings.tsx` | `/settings` | Configuration + data management. |
+| `src/app/_layout.tsx` | — | `SQLiteProvider` (runs migrations) → `SafeAreaProvider` → `Stack` |
+| `src/app/index.tsx` | `/` | Today. The 30-second flow. |
+| `src/app/log/[date].tsx` | `/log/2026-09-27` | Add/edit one day. `date` is a validated param. |
+| `src/app/history.tsx` | `/history` | Grouped list. |
+| `src/app/reports.tsx` | `/reports` | Totals + progress. |
+| `src/app/settings.tsx` | `/settings` | Configuration + data management. |
 
 Tabs (`(tabs)` group) are an option for later if the screen count grows; a plain stack is simpler for 5 screens.
 

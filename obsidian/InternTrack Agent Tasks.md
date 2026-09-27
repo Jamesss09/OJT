@@ -37,20 +37,29 @@ Index: [[InternTrack Index]] · Scope: [[InternTrack Overview]] · Stack: [[Inte
 
 ## Phase 1 — Scaffold (M)
 
-- [ ] `T-01` Scaffold the Expo app. **M** · deps: none
-  - `npx create-expo-app@latest interntrack` into the repo root; default TypeScript template; enable `newArchEnabled`.
-  - Verify `npx tsc --noEmit` and `npx expo start` are clean on arrival.
-  - AC: app launches in a simulator, no errors.
-- [ ] `T-02` Install runtime dependencies via `npx expo install`. **S** · deps: `T-01`
-  - `expo-router expo-sqlite expo-notifications zustand @react-native-community/datetimepicker react-native-safe-area-context expo-haptics react-native-reanimated expo-dev-client`
-  - AC: `npx expo-doctor` passes; every version matches [[InternTrack Tech Stack]].
-- [ ] `T-03` Configure `app.json`, `tsconfig.json` (strict, path alias `@/*`), `eas.json`. **S** · deps: `T-02`
-  - AC: strict TS with no implicit `any`; `eas.json` has `development` / `preview` / `production` per the stack note.
-- [ ] `T-04` Set up the theme tokens and `ThemeProvider`. **S** · deps: `T-01`
+- [x] `T-01` Scaffold the Expo app. **M** · deps: none
+  - `npx create-expo-app@latest interntrack` → got `expo-template-default@sdk-57`: expo 57.0.25, RN 0.86.3, React 19.2.3. ✅ matches decision 7
+  - Demo stripped (tabs, animated splash, badges, collapsible, 8 demo images). Kept `themed-text`, `themed-view`, `constants/theme.ts`, `use-theme`, `use-color-scheme`.
+  - Placeholder `src/app/index.tsx` so the router is valid; real screen in `T-24`.
+  - AC met: `tsc --noEmit` clean, `expo lint` clean, `expo-doctor` 21/21 passed.
+- [x] `T-02` Install runtime dependencies. **S** · deps: `T-01`
+  - Added `expo-sqlite`, `expo-notifications`, `expo-haptics`, `expo-dev-client`, `datetimepicker`, `zustand`.
+  - Removed as unused demo surface: `@expo/ui`, `expo-device`, `expo-glass-effect`, `expo-image`, `expo-symbols`, `expo-web-browser`.
+  - AC met: `npx expo install --check` → "Dependencies are up to date".
+  - ⚠️ `datetimepicker` was hand-pinned to 9.2.1 straight from npm `latest`; `--check` rejected it and `--fix` corrected it to 9.1.0. R-11 caught a real mistake — see [[InternTrack Rules]].
+- [x] `T-03` Config files. **S** · deps: `T-02`
+  - `app.json`: display name **InternTrack**, ids `com.jamesss09.interntrack`, `expo-notifications` plugin.
+  - `tsconfig.json`: template already shipped `strict: true` + `@/*` → `./src/*`. No change needed.
+  - `eas.json`: `development` / `preview` (internal APK) / `production` (AAB + `autoIncrement`).
+  - `eslint.config.js`: scoped `react-hooks/set-state-in-effect` opt-out for `*.web.ts(x)` — the template's `hasHydrated` guard is intentional, not a mistake.
+  - `src/types/global.d.ts`: declares `*.css`; TS 6 rejects the template's `global.css` side-effect import (TS2882).
+  - AC met.
+- [ ] `T-04` Theme tokens. **S** · deps: `T-01`
+  - ⚠️ Largely satisfied already: `src/constants/theme.ts` + `useTheme()` ship light/dark tokens. **Review and extend, do not replace** — do not create a parallel `src/theme/`.
   - AC: spacing / colour / radius / type tokens; light and dark resolved from device scheme.
 - [ ] `T-05` Root `_layout.tsx`: providers wired. **S** · deps: `T-02`, `T-04`
   - `SQLiteProvider` → `SafeAreaProvider` → `Stack`; routes per [[InternTrack Architecture]] navigation map.
-  - AC: all 5 routes reachable, no red screen.
+  - Currently a placeholder with only `index`. AC: all 5 routes reachable, no red screen.
 
 ---
 
@@ -180,9 +189,9 @@ Index: [[InternTrack Index]] · Scope: [[InternTrack Overview]] · Stack: [[Inte
 | ID | Task | Phase | Size | Status | Blocked by |
 | --- | --- | --- | --- | --- | --- |
 | `T-00` | Planning notes | 0 | M | **done** | — |
-| `T-01` | Scaffold Expo app | 1 | M | todo | — |
-| `T-02` | Install dependencies | 1 | S | todo | `T-01` |
-| `T-03` | Config files | 1 | S | todo | `T-02` |
+| `T-01` | Scaffold Expo app | 1 | M | **done** | — |
+| `T-02` | Install dependencies | 1 | S | **done** | `T-01` |
+| `T-03` | Config files | 1 | S | **done** | `T-02` |
 | `T-04` | Theme tokens | 1 | S | todo | `T-01` |
 | `T-05` | Root layout + routes | 1 | S | todo | `T-02` |
 | `T-11` | `lib/hours.ts` | 2 | M | todo | `T-01` |
@@ -219,9 +228,11 @@ Index: [[InternTrack Index]] · Scope: [[InternTrack Overview]] · Stack: [[Inte
 
 | | |
 | --- | --- |
-| Tasks done | 1 / 35 |
+| Tasks done | 4 / 35 |
 | In progress | 0 |
-| Current | `T-01` — Scaffold the Expo app |
+| Current | `T-04` — review/extend the template theme tokens |
+| Next real milestone | Phase 2 (`T-11`–`T-13`) is pure logic, testable in Node with no build required |
+| First build needed | `T-61` — nothing before that needs a device |
 | Blocking decision | Export scope (Phase 7) — answered "not MVP", see [[InternTrack Index]] |
 
 ## Related

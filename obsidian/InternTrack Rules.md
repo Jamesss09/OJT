@@ -95,12 +95,24 @@ progress = SUM(minutes) / requiredMinutes     // requiredMinutes > 0
 
 ## R-11 · Dependency versions come from `npx expo install`
 
-- `npx expo install <pkg>` — always. It resolves the version the SDK expects.
-- **Never** `npm install react-native` / `npm install typescript` to "get latest":
-  - npm `react-native@latest` = **0.87.1**; Expo SDK 57 targets **0.86**.
-  - npm `typescript@latest` = **7.0.2**; the Expo template pins **5.x**.
+- `npx expo install <pkg>` — always. It resolves the version the SDK expects, not the version npm considers newest.
+- **Never** `npm install <pkg>` to "get latest", and never hand-write a version into `package.json`. Real examples, all hit on 2026-09-27 against SDK 57:
+
+  | Package | npm `latest` | SDK 57 actually wants | Consequence of using `latest` |
+  | --- | --- | --- | --- |
+  | `react-native` | 0.87.1 | 0.86.3 | Wrong RN for the SDK |
+  | `typescript` | 7.0.2 | ~6.0.3 | Stricter compiler, unrelated errors |
+  | `@react-native-community/datetimepicker` | 9.2.1 | **9.1.0** | `expo install --check` fails |
+  | `react-native-reanimated` | 4.7.0 | 4.5.1 | Untested against the SDK |
+  | `react-native-safe-area-context` | 5.10.0 | 5.7.0 | Same |
+
+- **The template's pin is the source of truth**, even when it is *older* than npm `latest`. The Expo team ships the combination they test.
+- After any dependency change, run `npx expo install --check` and fix what it reports (`--fix` applies it). Do not hand-correct its output.
 - Don't add a dependency that isn't listed in [[InternTrack Tech Stack]]. Adding one means updating that note first.
-- Every new dependency must justify its native surface. Each one is a potential build failure.
+- Every new dependency must justify its native surface. Each one is a potential build failure — and under decision 9 ([[InternTrack Index]]) native problems cannot be debugged locally.
+
+> [!warning] R-11 is not theoretical
+> During T-01 a version was hand-written into `package.json` (`datetimepicker@9.2.1`, taken from npm `latest`). `npx expo install --check` rejected it and `--fix` corrected it to 9.1.0. This is the rule working exactly as intended.
 
 ## R-12 · Build discipline
 

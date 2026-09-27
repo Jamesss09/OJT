@@ -43,9 +43,9 @@ A React Native (Expo) mobile app where an intern records, reviews and totals the
 
 ## Current phase
 
-**Phase 1 — Scaffold.** Code lives in `interntrack/` inside this repo; the Obsidian vault is a sibling.
+**Phase 1 — Scaffold. `T-01`–`T-03` done.** The app lives in `interntrack/` (a subfolder of this repo, so `obsidian/` stays a sibling). Verified: `tsc --noEmit` clean · `expo lint` clean · `expo install --check` clean · `expo-doctor` 21/21.
 
-Next action: work [[InternTrack Agent Tasks]] top-down, starting at `T-01`.
+Next action: `T-04`, then `T-05`. See [[InternTrack Agent Tasks]].
 
 ## Open questions
 
