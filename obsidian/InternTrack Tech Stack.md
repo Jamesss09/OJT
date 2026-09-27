@@ -80,12 +80,26 @@ Install with `npx expo install <pkg>` so versions match the SDK.
 
 ### Build cost discipline
 
-> [!warning] The Free plan is a limited allowance (≈15 Android + 15 iOS builds/month per [expo.dev/pricing](https://expo.dev/pricing) — verify, pricing changes).
-> Treat cloud builds as scarce.
+> [!danger] Decision 9 — this machine has **no Android toolchain** (no Android Studio, no JDK, no Android SDK, no `adb`). Chosen deliberately: limited free disk.
+> **EAS Build runs in the cloud, so this does not block building the app at all.** It changes *how you verify*, not *whether you can build*.
 
-- Day-to-day work: `npx expo start --dev-client` against a locally built dev client, **not** cloud builds.
-- `eas build --profile preview --platform android` only when you need an installable APK.
-- Before *any* cloud build: does the change require native code? If not, it is a local JS reload.
+Consequences to design around:
+
+| Normally you'd… | Here you… | Cost |
+| --- | --- | --- |
+| `npx expo run:android` for a local dev loop | **Cannot.** No JDK/Android SDK. | — |
+| Reload JS and see the change instantly | Rebuild and reinstall the APK | 1 EAS build |
+| `npx expo start` in Expo Go | Works for pure-JS screens only; **SQLite and notifications are native** and need a real build | free, but limited |
+
+Working rules under Option B:
+
+- **Verify logic in Node, not on the device.** Jest covers `src/lib` and the repositories. Most bugs (hours maths, date ranges, SQL) never need a phone — see the testing strategy in [[InternTrack Architecture]].
+- `npx tsc --noEmit` and `npx expo lint` are the fast inner loop. Both are free and catch most mistakes.
+- Spend cloud builds only on **UI/visual verification** — the first `T-61` build, then after a batch of screen work.
+- Batch changes: finish a whole phase, then build once. Do not build per task.
+- The Free plan is a limited allowance (≈15 Android + 15 iOS builds/month per [expo.dev/pricing](https://expo.dev/pricing) — verify, pricing changes). Treat it as scarce.
+- `eas build --profile preview --platform android` produces the installable APK. Use `--auto-submit` only for the store track.
+- Requires an Expo account (`npx eas login`, free). iOS **device** builds additionally require a paid Apple Developer account; simulator builds do not.
 
 ## Deferred but chosen (Phase 7 — export & backup)
 
